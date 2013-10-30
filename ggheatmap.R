@@ -1,0 +1,473 @@
+#!/usr/bin/env Rscript
+
+# DEBUG OPTIONS
+
+opt = list()
+opt$input_matrix = "~/Documents/blueprint/pilot/Flux/Long/bp.human.long.gene.RPKM.idr_01.thr_0.names_False.tsv"
+opt$metadata = "~/Documents/blueprint/pilot/bp_rna_dashboard_mmaps.crg.tsv"
+opt$col_labels = NULL
+opt$row_labels = NULL
+opt$colSide_by = "cell"
+opt$merge_mdata_on = "labExpId"
+opt$col_dendro = TRUE
+opt$row_dendro = TRUE
+opt$dist = "euclidean"
+opt$hclust = "complete"
+
+
+##################
+# OPTION PARSING
+##################
+
+suppressPackageStartupMessages(library("optparse"))
+
+option_list <- list(
+
+make_option(c("-i", "--input_matrix"), 
+	help="the matrix you want to analyze"),
+
+make_option(c("-l", "--log"), action="store_true", default=FALSE, 
+	help="apply the log [default=%default]"),
+
+make_option(c("-p", "--pseudocount"), type="double", default=pseudocount, 
+	help="specify a pseudocount for the log [default=%default]"),
+
+make_option(c("-m", "--metadata"), 
+	help="one or more tsv file(s) with metadata on matrix experiment. Can be left empty."),
+
+make_option(c("-M", "--merge_mdata_on"), default="labExpId",
+	help="which field of the metadata corresponds to the column headers? [default=%default]"), 
+
+make_option(c("--col_labels"), 
+	help="Specify the field for the col labels. \"none\" for no col labels. If empty the column headers are used."),
+
+make_option(c("--row_labels"), 
+	help="Specify the field for the col labels. \"none\" for no row labels. If empty the row names are used."),
+
+make_option(c("--colSide_by"), 
+	help="Specify the field(s), you want the column sides coloured by. If empty no color side is added."
+
+make_option(c("--col_dendro"), action="store_true", default=FALSE, 
+	help="Print the column dendrogram [default=%default]"),
+
+make_option(c("--row_dendro"), action="store_true", default=FALSE, 
+	help="Print the row dendrogram [default=%default]")
+
+make_option(c("-d", "--dist"), default="euclidean",
+	help="distance measure between columns. Choose among <p> (pearson), <s> (spearman), all methods supported by the function dist(). [default=%default]"),
+
+make_option(c("-C", "--hclust"), default="complete",
+	help="hierarchical clustering method. Choose among the method of the function hclust(). [default=%default]"),
+
+#make_option(c("-c", "--hclust"), help=sprintf("hierarchical clustering method. Choose among <complete>, <average> [default=%s]",hcluster), default=hcluster),
+#make_option(c("-C", "--color_by"), help="metadata by which colouring the variables [default=NA]", type='character', default=NA ),
+#make_option(c("-o", "--output_suffix"), help="additional suffix for the output [default=%default]", default="out"),
+make_option(c("-f", "--fields"), help="write the header of the fields you want in the labels, comma-separated [default=labExpId]", default="labExpId")
+)
+
+parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
+arguments <- parse_args(parser, positional_arguments = TRUE)
+opt <- arguments$options
+
+print(opt)
+
+#------------#
+# LIBRARIES  #
+#------------#
+
+cat("Loading libraries... ")
+suppressPackageStartupMessages(library(reshape2))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(ggdendro))
+suppressPackageStartupMessages(library(grid))
+suppressPackageStartupMessages(library(RColorBrewer))
+cat("DONE\n\n")
+
+
+# ==========================================
+# Function for extracting legend from ggplot
+# ==========================================
+g_legend<-function(a.gplot){
+    tmp <- ggplot_gtable(ggplot_build(a.gplot))
+    leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+    legend <- tmp$grobs[[leg]]
+    legend
+}
+
+
+# ======================
+# Plotting variables
+# ======================
+
+base_size = 16
+theme_set(theme_grey(base_size))
+theme_update(axis.ticks=element_blank())
+theme_update(axis.ticks.margin = unit(0.01, "inch"))
+theme_update(axis.ticks.length = unit(0.01, "inch"))
+
+
+
+# ===== #
+# BEGIN #
+# ===== #
+
+
+# read table
+m = read.table(opt$input_matrix, h=T)
+
+# remove potential gene id columns
+char_cols <- which(sapply(m, class) == 'character')
+sprintf("WARNING: column %s is character, so it is removed from the analysis", char_cols)
+if (length(char_cols) == 0) {genes = rownames(m)}
+if (length(char_cols) != 0) {genes = m[,char_cols]; m = m[,-(char_cols)]}
+
+# melt the data frame
+df = melt(as.matrix(m[1:50,]))
+
+
+
+# --------------- Metadata processing -------------
+
+# read metadata
+if (!is.null(opt$metadata)) {mdata = read.table(opt$metadata, h=T, sep="\t")}
+# read which fields are needed from the metadata
+if (!is.null(opt$colSide_by)) {colSide_by = strsplit(opt$colSide_by, ",")[[1]]} else {colSide_by = NULL}
+if (!is.null(opt$rowSide_by)) {rowSide_by = strsplit(opt$rowSide_by, ",")[[1]]} else {rowSide_by = NULL}
+mdata_header = unique(c(opt$merge_mdata_on, colSide_by, rowSide_by))
+
+
+# merge metadata and data (NB: The column Var2 stays)
+if (!is.null(opt$metadata)) {df = merge(df, mdata[mdata_header], by.x="Var2", by.y=opt$merge_mdata_on)}
+
+
+
+# ---------------- Dendrogram ----------------------
+
+# COLUMNS
+
+if (opt$col_dendro) {
+	if (opt$dist == "p" || opt$dist =="s") {
+		colDist = as.dist(1-cor(m[1:50,], method=opt$dist, use="p"))
+	} else {
+		colDist = dist(t(m), method=opt$dist)
+	}
+	colHC = hclust(colDist, method=opt$hclust)
+	colHC_data = dendro_data(as.dendrogram(colHC))
+	col_ggdendro = ggplot(segment(colHC_data))
+	col_ggdendro = col_ggdendro + geom_segment(aes(x=x, y=y, xend=xend, yend=yend))
+	#col_ggdendro = col_ggdendro + coord_flip()
+	col_ggdendro = col_ggdendro + scale_x_continuous(expand=c(0.05,0), labels=NULL) 
+	col_ggdendro = col_ggdendro + scale_y_continuous(expand=c(0,0), labels=NULL)
+	col_ggdendro = col_ggdendro + theme(plot.margin=unit(c(0.10, 0.00, 0.00, 0.01), "inch"))
+	col_ggdendro = col_ggdendro + theme_dendro()
+	col_ggdendro = col_ggdendro + labs(x=NULL, y=NULL)
+}
+
+# ROWS
+
+if (opt$row_dendro) {
+	if (opt$dist == "p" || opt$dist =="s") {
+		rowDist = as.dist(1-cor(t(m[1:50,]), method=opt$dist, use="p"))
+	} else {
+		rowDist = dist(m[1:50,], method=opt$dist)
+	}
+	rowHC = hclust(rowDist, method=opt$hclust)
+	rowHC_data = dendro_data(as.dendrogram(rowHC))
+	row_ggdendro = ggplot(segment(rowHC_data))
+	row_ggdendro = row_ggdendro + geom_segment(aes(x=x, y=y, xend=xend, yend=yend))
+	row_ggdendro = row_ggdendro + coord_flip()
+	row_ggdendro = row_ggdendro + scale_x_continuous(expand=c(0.015,0), labels=NULL) 
+	row_ggdendro = row_ggdendro + scale_y_continuous(expand=c(0,0), labels=NULL)
+	row_ggdendro = row_ggdendro + theme(plot.margin=unit(c(0.00, 0.10, 0.00, 0.00), "inch"))
+	row_ggdendro = row_ggdendro + theme_dendro()
+	row_ggdendro = row_ggdendro + labs(x=NULL, y=NULL)
+}
+
+
+
+# ------------------- Row and column labels ---------
+
+# Define the row and column labels
+if (is.null(opt$col_labels)) {
+	col_labels = colnames(m)
+} else {
+	if (opt$col_labels == "none") {
+		col_labels = NULL
+	}
+}
+
+if (is.null(opt$row_labels)) {
+	row_labels = rownames(m)
+} else {
+	if (opt$row_labels == "none") {
+		row_labels = NULL
+	}
+}
+
+
+if (opt$col_dendro) {
+	col_limits = colnames(m)[colHC$order]
+	col_labels = col_labels[colHC$order]
+} else {
+	col_limits = colnames(m)
+	col_labels = col_labels
+}
+
+if (opt$row_dendro) {
+	row_limits = rownames(m)[rowHC$order]
+	row_labels = row_labels[rowHC$order]
+} else {
+	row_limits = rownames(m)
+	row_labels = row_labels
+}
+
+
+#if (opt$col_dendro) {col_labels_order = col_labels[colHC$order]} else {col_labels_order = col_labels}
+#if (opt$row_dendro) {row_labels_order = row_labels[rowHC$order]} else {row_labels_order = row_labels}
+
+#row_labels_inches = base_size/72.27 * as.numeric(theme_get()$axis.text$size) * max(nchar(row_labels))
+#row_labels_inches = max(strwidth(row_labels, units="in", cex=base_size*(as.numeric(theme_get()$axis.text$size))*par()$cex/par()$ps))
+row_labels_inches = max(strwidth(row_labels, units="in"))
+col_labels_inches = max(strwidth(col_labels, units="in"))
+#col_labels_inches = base_size/72.27 * as.numeric(theme_get()$axis.text$size) * max(nchar(col_labels))
+
+
+
+# ------------------- Matrix plot -------------------
+
+p1 = ggplot(df, aes(x=Var2, y=Var1))
+p1 = p1 + geom_tile(aes(fill=value))
+p1 = p1 + theme(axis.text.x = element_text(angle=90, vjust=0.5))
+p1 = p1 + scale_x_discrete(expand=c(0,0), limits=col_limits, labels=col_labels)
+p1 = p1 + scale_y_discrete(limits=row_limits, labels=row_labels)
+p1 = p1 + scale_fill_gradientn(colours=bluered(16))
+p1 = p1 + theme(plot.margin=unit(c(0.00, 0.00, 0.01, 0.01),"inch"))
+p1 = p1 + labs(x=NULL, y=NULL)
+p1 = p1 + guides(fill=guide_colourbar(title.position="top", direction="horizontal", title.hjust=0))
+p1_legend = g_legend(p1)
+p1 = p1 + theme(legend.position = "none")
+
+
+
+# -------------------- Column Side Colors ------------
+
+if (!is.null(opt$colSide_by)) {
+	ColSides = list(); ColSide_legends = list(); i=1;
+	for (colSide in colSide_by) {
+		colSide_data = unique(df[c("Var2", colSide)])
+		ColSide = ggplot(colSide_data, aes(x=Var2, y="a"))
+		ColSide = ColSide + geom_tile(aes_string(fill=colSide), color="black")
+		ColSide = ColSide + scale_x_discrete(limits = col_limits, labels=NULL, expand=c(0,0))
+		ColSide = ColSide + scale_y_discrete(labels=NULL, expand=c(0,0))
+		ColSide = ColSide + theme(plot.margin=unit(c(0.00, 0.00, 0.00, 0.01),"inch"))
+		ColSide = ColSide + labs(x=NULL, y=NULL)
+		ColSide_legends[[i]] = g_legend(ColSide)
+		ColSide = ColSide + theme(legend.position="none")
+		ColSides[[i]] = ColSide; i=i+1;
+	}
+}
+
+
+# ----------------------- Row Side Colors ------------
+
+if (!is.null(opt$rowSide_by)) {
+	RowSides = list(); RowSide_legends = list(); i=1;
+	for (rowSide in rowSide_by) {
+		rowSide_data = unique(df[c("Var2", rowSide)])
+		RowSide = ggplot(rowSide_data, aes(x=Var2, y="a"))
+		RowSide = RowSide + geom_tile(aes_string(fill=colSide), color="black")
+		RowSide = RowSide + scale_x_discrete(limits = row_limits, labels=NULL, expand=c(0,0))
+		RowSide = RowSide + scale_y_discrete(labels=NULL, expand=c(0,0))
+		RowSide = RowSide + theme(plot.margin=unit(c(0.00, 0.00, 0.00, 0.01),"inch"))
+		RowSide = RowSide + labs(x=NULL, y=NULL)
+		RowSide_legends[[i]] = g_legend(RowSide)
+		RowSide = RowSide + theme(legend.position="none")
+		RowSides[[i]] = RowSide; i=i+1;
+	}
+} 
+
+
+
+
+
+
+# ============================
+# Compose with viewports
+# ============================
+
+# >>>>> Matrix viewport <<<<<<<<<<<<<<<<<
+
+matrix_vp_y = max(0, as.numeric(strwidth(rowSide_by, "in")) - col_labels_inches)
+matrix_vp_x = max(0, as.numeric(strwidth(colSide_by, "in")) - row_labels_inches)
+matrix_vp_h = 8; 
+matrix_vp_w = base_size/72.27 * ncol(m) + row_labels_inches
+matrix_vp = viewport(
+	y = matrix_vp_y,
+	x = matrix_vp_x, 
+	h = matrix_vp_h, 
+	w = matrix_vp_w, 
+	default.units="inch", 
+	just=c("left","bottom")
+)
+
+# >>>>> Matrix scale viewport <<<<<<<<<<<
+
+matrix_scale_h = 0.5
+matrix_scale_w = 1
+matrix_scale_vp = viewport(
+	y = matrix_vp_y + matrix_vp_h + 0.20,
+	x = matrix_vp_x + matrix_vp_w + 0.20,
+	h = matrix_scale_h,
+	w = matrix_scale_w,
+	default.units = "inch",
+	just = c("left", "bottom")
+)
+
+
+# >>>>>> Column side viewport <<<<<<<<<<<
+
+if (!is.null(opt$colSide_by)){
+	ColSide_vps = list(); ColSide_label_vps = list()
+	for (i in 1:length(ColSides)) {
+		ColSide_vps[[i]] = viewport(
+			y = matrix_vp_y + matrix_vp_h + 0.25*(i-1), 
+			x = matrix_vp_x + row_labels_inches,
+			h = 0.25,
+			w = matrix_vp_w - row_labels_inches,
+			default.units = "inch",
+			just = c("left", "bottom") 
+		 )
+		ColSide_label_vps[[i]] = viewport(
+			y = matrix_vp_y + matrix_vp_h + 0.25*(i-1),
+			x = matrix_vp_x + row_labels_inches,
+			h = 0.25,
+			w = max(row_labels_inches, as.numeric(strwidth(colSide_by, "inch"))),
+			default.units = "inch",
+			just = c("right", "bottom")
+		)
+	}
+}
+
+
+# >>>>> Row side viewport <<<<<<<<<<<<<<<<
+
+if (!is.null(opt$rowSide_by)){
+	RowSide_vps = list(); RowSide_label_vps = list()
+	for (i in 1:length(RowSides)) {
+		RowSide_vps[[i]] = viewport(
+			y = col_labels_inches, 
+			x = row_labels_inches,
+			h = 0.25,
+			w = matrix_vp_w - row_labels_inches,
+			default.units = "inch",
+			just = c("left", "bottom") 
+		 )
+		ColSide_label_vps[[i]] = viewport(
+			y = matrix_vp_h + 0.25*(i-1),
+			x = row_labels_inches,
+			h = 0.25,
+			w = max(row_labels_inches, as.numeric(strwidth(colSide_by, "inch"))),
+			default.units = "inch",
+			just = c("right", "bottom")
+		)
+	}
+}
+
+
+# >>> Column dendrogram viewport <<<<<<<<<
+
+col_dendro_h = 0.1
+if (opt$col_dendro) {
+	col_dendro_h = 0.5
+	colDendro_vp = viewport(
+	y = matrix_vp_y + matrix_vp_h + 0.25*length(colSide_by),
+	x = matrix_vp_x + row_labels_inches,
+	h = col_dendro_h,
+	w = matrix_vp_w - row_labels_inches,
+	default.units = "inch",
+	just = c("left", "bottom")
+	)
+}
+
+
+# >>>> Row dendrogram viewport <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+row_dendro_w = 0.1
+if (opt$row_dendro) {
+	row_dendro_w = 2.0
+	rowDendro_vp = viewport(
+	y = matrix_vp_y + col_labels_inches,
+	x = matrix_vp_x + matrix_vp_w + 0.25*length(rowSide_by), 
+	h = matrix_vp_h - col_labels_inches,
+	w = row_dendro_w,
+	default.units = "inch",
+	just = c("left", "bottom")
+	)
+}
+
+
+total_h = matrix_vp_y + matrix_vp_h + 0.25*length(colSide_by) + max(col_dendro_h, matrix_scale_h)
+total_w = matrix_vp_x + matrix_vp_w + 0.25*length(rowSide_by) + max(row_dendro_w, matrix_scale_w)
+
+
+# >>>>> Column and row side legends viewport <<<<<<<<<<<<<<<<<
+
+if (!is.null(opt$colSide_by) || !is.null(opt$rowSide_by)) {
+	legend_width_inch = max(strwidth(unlist(unique(df[c(colSide_by, rowSide_by)])), unit="inch")) + 0.4
+	legend_height_inch = total_h/length(c(colSide_by, rowSide_by))
+	side_legend_vps = list()
+	for (i in 1:length(c(colSide_by, rowSide_by))) {
+		side_legend_vp = viewport(
+			y = matrix_vp_y + matrix_vp_h + 0.25*length(colSide_by) + col_dendro_h - legend_height_inch*(i-1),
+			x = matrix_vp_x + matrix_vp_w + 0.25*length(rowSide_by) + row_dendro_w,
+			h = legend_height_inch,
+			w = legend_width_inch,
+			default.units = "inch",
+			just = c("left", "top")
+		)
+		side_legend_vps[[i]] = side_legend_vp
+	}
+}
+
+total_w = total_w + legend_width_inch
+
+
+# =======================================
+# PRINT PLOT
+# =======================================
+
+X11(h=total_h, w=total_w)
+
+# Print matrix
+print(p1, matrix_vp, newpage=FALSE)
+
+# Print matrix legend
+pushViewport(matrix_scale_vp); grid.draw(p1_legend); upViewport()
+
+# Print column side colors
+if (!is.null(opt$colSide_by)) {
+	for (i in 1:length(ColSide_vps)) {
+		print(ColSides[[i]], vp=ColSide_vps[[i]], newpage=FALSE)
+		grid.text(colSide_by[i], x=unit(1,"npc"), just="right", vp=ColSide_label_vps[[i]], gp=gpar(face="bold"))
+	}
+}
+
+# Print column dendrogram
+if (opt$col_dendro) {print(col_ggdendro, vp=colDendro_vp, newpage=FALSE)}
+
+# Print row dendrogram
+if (opt$row_dendro) {print(row_ggdendro, vp=rowDendro_vp, newpage=FALSE)}
+
+# Print column and row side color scales
+if (!is.null(opt$colSide_by) || !is.null(opt$rowSide_by)) {
+	for (i in 1:length(c(colSide_by, rowSide_by))) {
+		all_side_legends = c(ColSide_legends, RowSide_legends)
+		pushViewport(side_legend_vps[[i]]); grid.draw(all_side_legends[[i]]); upViewport()
+	}
+}
+
+
+
+
+
+
