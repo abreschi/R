@@ -1,7 +1,6 @@
 #!/usr/bin/env Rscript
 
 # DEBUG OPTIONS
-
 opt = list()
 opt$input_matrix = "~/Documents/blueprint/pilot/Flux/Long/bp.human.long.gene.RPKM.idr_01.thr_0.names_False.tsv"
 opt$metadata = "~/Documents/blueprint/pilot/bp_rna_dashboard_mmaps.crg.tsv"
@@ -29,7 +28,7 @@ make_option(c("-i", "--input_matrix"),
 make_option(c("-l", "--log"), action="store_true", default=FALSE, 
 	help="apply the log [default=%default]"),
 
-make_option(c("-p", "--pseudocount"), type="double", default=pseudocount, 
+make_option(c("-p", "--pseudocount"), type="double", default=1e-04,
 	help="specify a pseudocount for the log [default=%default]"),
 
 make_option(c("-m", "--metadata"), 
@@ -38,6 +37,18 @@ make_option(c("-m", "--metadata"),
 make_option(c("-M", "--merge_mdata_on"), default="labExpId",
 	help="which field of the metadata corresponds to the column headers? [default=%default]"), 
 
+#make_option(c("--col_metadata"), 
+#	help="one tsv file with metadata on matrix columns. Can be left empty."),
+#
+#make_option(c("--merge_col_mdata_on"), default="labExpId",
+#	help="which field of the metadata corresponds to the column headers? [default=%default]"), 
+#
+#make_option(c("--row_metadata"), 
+#	help="one tsv file with metadata on matrix rows. Can be left empty."),
+#
+#make_option(c("--merge_row_mdata_on"), default="labExpId",
+#	help="which field of the metadata corresponds to the row names? [default=%default]"), 
+
 make_option(c("--col_labels"), 
 	help="Specify the field for the col labels. \"none\" for no col labels. If empty the column headers are used."),
 
@@ -45,25 +56,29 @@ make_option(c("--row_labels"),
 	help="Specify the field for the col labels. \"none\" for no row labels. If empty the row names are used."),
 
 make_option(c("--colSide_by"), 
-	help="Specify the field(s), you want the column sides coloured by. If empty no color side is added."
+	help="Specify the field(s), you want the column sides coloured by. If empty no color side is added."),
 
 make_option(c("--col_dendro"), action="store_true", default=FALSE, 
 	help="Print the column dendrogram [default=%default]"),
 
 make_option(c("--row_dendro"), action="store_true", default=FALSE, 
-	help="Print the row dendrogram [default=%default]")
+	help="Print the row dendrogram [default=%default]"),
 
 make_option(c("-d", "--dist"), default="euclidean",
-	help="distance measure between columns. Choose among <p> (pearson), <s> (spearman), all methods supported by the function dist(). [default=%default]"),
+	help="distance measure between columns. Choose among <p> (pearson), <s> (spearman),
+		all methods supported by the function dist(). [default=%default]"),
 
-make_option(c("-C", "--hclust"), default="complete",
+make_option(c("-c", "--hclust"), default="complete",
 	help="hierarchical clustering method. Choose among the method of the function hclust(). [default=%default]"),
 
-#make_option(c("-c", "--hclust"), help=sprintf("hierarchical clustering method. Choose among <complete>, <average> [default=%s]",hcluster), default=hcluster),
-#make_option(c("-C", "--color_by"), help="metadata by which colouring the variables [default=NA]", type='character', default=NA ),
-#make_option(c("-o", "--output_suffix"), help="additional suffix for the output [default=%default]", default="out"),
-make_option(c("-f", "--fields"), help="write the header of the fields you want in the labels, comma-separated [default=labExpId]", default="labExpId")
+make_option(c("-B", "--base_size"), default=16,
+	help="The font base size as defined in ggplot2. [default=%default]"),
+
+make_option(c("-o", "--output"), 
+	help="Output file name, with the extension. [default=%default]", default="ggheatmap.out.pdf")
+
 )
+
 
 parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
 arguments <- parse_args(parser, positional_arguments = TRUE)
@@ -87,6 +102,7 @@ cat("DONE\n\n")
 # ==========================================
 # Function for extracting legend from ggplot
 # ==========================================
+
 g_legend<-function(a.gplot){
     tmp <- ggplot_gtable(ggplot_build(a.gplot))
     leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
@@ -99,7 +115,7 @@ g_legend<-function(a.gplot){
 # Plotting variables
 # ======================
 
-base_size = 16
+base_size = opt$base_size
 theme_set(theme_grey(base_size))
 theme_update(axis.ticks=element_blank())
 theme_update(axis.ticks.margin = unit(0.01, "inch"))
@@ -114,6 +130,7 @@ theme_update(axis.ticks.length = unit(0.01, "inch"))
 
 # read table
 m = read.table(opt$input_matrix, h=T)
+m = m[1:50,]
 
 # remove potential gene id columns
 char_cols <- which(sapply(m, class) == 'character')
@@ -122,7 +139,7 @@ if (length(char_cols) == 0) {genes = rownames(m)}
 if (length(char_cols) != 0) {genes = m[,char_cols]; m = m[,-(char_cols)]}
 
 # melt the data frame
-df = melt(as.matrix(m[1:50,]))
+df = melt(as.matrix(m))
 
 
 
@@ -147,7 +164,7 @@ if (!is.null(opt$metadata)) {df = merge(df, mdata[mdata_header], by.x="Var2", by
 
 if (opt$col_dendro) {
 	if (opt$dist == "p" || opt$dist =="s") {
-		colDist = as.dist(1-cor(m[1:50,], method=opt$dist, use="p"))
+		colDist = as.dist(1-cor(m, method=opt$dist, use="p"))
 	} else {
 		colDist = dist(t(m), method=opt$dist)
 	}
@@ -167,9 +184,9 @@ if (opt$col_dendro) {
 
 if (opt$row_dendro) {
 	if (opt$dist == "p" || opt$dist =="s") {
-		rowDist = as.dist(1-cor(t(m[1:50,]), method=opt$dist, use="p"))
+		rowDist = as.dist(1-cor(t(m), method=opt$dist, use="p"))
 	} else {
-		rowDist = dist(m[1:50,], method=opt$dist)
+		rowDist = dist(m, method=opt$dist)
 	}
 	rowHC = hclust(rowDist, method=opt$hclust)
 	rowHC_data = dendro_data(as.dendrogram(rowHC))
@@ -222,14 +239,14 @@ if (opt$row_dendro) {
 }
 
 
-#if (opt$col_dendro) {col_labels_order = col_labels[colHC$order]} else {col_labels_order = col_labels}
-#if (opt$row_dendro) {row_labels_order = row_labels[rowHC$order]} else {row_labels_order = row_labels}
 
-#row_labels_inches = base_size/72.27 * as.numeric(theme_get()$axis.text$size) * max(nchar(row_labels))
-#row_labels_inches = max(strwidth(row_labels, units="in", cex=base_size*(as.numeric(theme_get()$axis.text$size))*par()$cex/par()$ps))
-row_labels_inches = max(strwidth(row_labels, units="in"))
-col_labels_inches = max(strwidth(col_labels, units="in"))
-#col_labels_inches = base_size/72.27 * as.numeric(theme_get()$axis.text$size) * max(nchar(col_labels))
+# This works in the X11 device
+#row_labels_inches = max(strwidth(row_labels, units="in"))
+#col_labels_inches = max(strwidth(col_labels, units="in"))
+
+# This works in the pdf device
+row_labels_inches = max(strwidth(row_labels, units="in", cex=base_size*(as.numeric(theme_get()$axis.text$size))*par()$cex/par()$ps))
+col_labels_inches = max(strwidth(col_labels, units="in", cex=base_size*(as.numeric(theme_get()$axis.text$size))*par()$cex/par()$ps))
 
 
 
@@ -240,7 +257,7 @@ p1 = p1 + geom_tile(aes(fill=value))
 p1 = p1 + theme(axis.text.x = element_text(angle=90, vjust=0.5))
 p1 = p1 + scale_x_discrete(expand=c(0,0), limits=col_limits, labels=col_labels)
 p1 = p1 + scale_y_discrete(limits=row_limits, labels=row_labels)
-p1 = p1 + scale_fill_gradientn(colours=bluered(16))
+p1 = p1 + scale_fill_gradient2()
 p1 = p1 + theme(plot.margin=unit(c(0.00, 0.00, 0.01, 0.01),"inch"))
 p1 = p1 + labs(x=NULL, y=NULL)
 p1 = p1 + guides(fill=guide_colourbar(title.position="top", direction="horizontal", title.hjust=0))
@@ -251,8 +268,9 @@ p1 = p1 + theme(legend.position = "none")
 
 # -------------------- Column Side Colors ------------
 
+ColSides = list(); ColSide_legends = list()
 if (!is.null(opt$colSide_by)) {
-	ColSides = list(); ColSide_legends = list(); i=1;
+	i=1;
 	for (colSide in colSide_by) {
 		colSide_data = unique(df[c("Var2", colSide)])
 		ColSide = ggplot(colSide_data, aes(x=Var2, y="a"))
@@ -270,8 +288,9 @@ if (!is.null(opt$colSide_by)) {
 
 # ----------------------- Row Side Colors ------------
 
+RowSides = list(); RowSide_legends = list()
 if (!is.null(opt$rowSide_by)) {
-	RowSides = list(); RowSide_legends = list(); i=1;
+	i=1;
 	for (rowSide in rowSide_by) {
 		rowSide_data = unique(df[c("Var2", rowSide)])
 		RowSide = ggplot(rowSide_data, aes(x=Var2, y="a"))
@@ -427,7 +446,7 @@ if (!is.null(opt$colSide_by) || !is.null(opt$rowSide_by)) {
 		)
 		side_legend_vps[[i]] = side_legend_vp
 	}
-}
+} else { legend_width_inch = 0}
 
 total_w = total_w + legend_width_inch
 
@@ -436,7 +455,9 @@ total_w = total_w + legend_width_inch
 # PRINT PLOT
 # =======================================
 
-X11(h=total_h, w=total_w)
+pdf(opt$output, h = total_h, w=total_w)
+
+#X11(h=total_h, w=total_w)
 
 # Print matrix
 print(p1, matrix_vp, newpage=FALSE)
@@ -467,7 +488,7 @@ if (!is.null(opt$colSide_by) || !is.null(opt$rowSide_by)) {
 }
 
 
+dev.off()
 
 
-
-
+q(save="no")
