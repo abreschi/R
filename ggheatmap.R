@@ -3,11 +3,13 @@
 # DEBUG OPTIONS
 opt = list()
 opt$input_matrix = "~/Documents/blueprint/pilot/Flux/Long/bp.human.long.gene.RPKM.idr_01.thr_0.names_False.tsv"
-opt$metadata = "~/Documents/blueprint/pilot/bp_rna_dashboard_mmaps.crg.tsv"
+opt$col_metadata = "~/Documents/blueprint/pilot/bp_rna_dashboard_mmaps.crg.tsv"
 opt$col_labels = NULL
 opt$row_labels = NULL
 opt$colSide_by = "cell"
-opt$merge_mdata_on = "labExpId"
+opt$merge_col_mdata_on = "labExpId"
+opt$row_metadata = "/users/rg/projects/encode/scaling_up/whole_genome/Gencode/version15/Long/gen15.gene.super.gene_type.with_header.tsv"
+opt$merge_row_mdata_on = "gene"
 opt$col_dendro = TRUE
 opt$row_dendro = TRUE
 opt$dist = "euclidean"
@@ -31,23 +33,23 @@ make_option(c("-l", "--log"), action="store_true", default=FALSE,
 make_option(c("-p", "--pseudocount"), type="double", default=1e-04,
 	help="specify a pseudocount for the log [default=%default]"),
 
-make_option(c("-m", "--metadata"), 
-	help="one or more tsv file(s) with metadata on matrix experiment. Can be left empty."),
+#make_option(c("-m", "--metadata"), 
+#	help="one or more tsv file(s) with metadata on matrix experiment. Can be left empty."),
+#
+#make_option(c("-M", "--merge_mdata_on"), default="labExpId",
+#	help="which field of the metadata corresponds to the column headers? [default=%default]"), 
 
-make_option(c("-M", "--merge_mdata_on"), default="labExpId",
+make_option(c("--col_metadata"), 
+	help="one tsv file with metadata on matrix columns. Can be left empty."),
+
+make_option(c("--merge_col_mdata_on"), default="labExpId",
 	help="which field of the metadata corresponds to the column headers? [default=%default]"), 
 
-#make_option(c("--col_metadata"), 
-#	help="one tsv file with metadata on matrix columns. Can be left empty."),
-#
-#make_option(c("--merge_col_mdata_on"), default="labExpId",
-#	help="which field of the metadata corresponds to the column headers? [default=%default]"), 
-#
-#make_option(c("--row_metadata"), 
-#	help="one tsv file with metadata on matrix rows. Can be left empty."),
-#
-#make_option(c("--merge_row_mdata_on"), default="labExpId",
-#	help="which field of the metadata corresponds to the row names? [default=%default]"), 
+make_option(c("--row_metadata"), 
+	help="one tsv file with metadata on matrix rows. Can be left empty."),
+
+make_option(c("--merge_row_mdata_on"), default="labExpId",
+	help="which field of the metadata corresponds to the row names? [default=%default]"), 
 
 make_option(c("--col_labels"), 
 	help="Specify the field for the col labels. \"none\" for no col labels. If empty the column headers are used."),
@@ -57,6 +59,9 @@ make_option(c("--row_labels"),
 
 make_option(c("--colSide_by"), 
 	help="Specify the field(s), you want the column sides coloured by. If empty no color side is added."),
+
+make_option(c("--rowSide_by"), 
+	help="Specify the field(s), you want the row sides coloured by. If empty no color side is added."),
 
 make_option(c("--col_dendro"), action="store_true", default=FALSE, 
 	help="Print the column dendrogram [default=%default]"),
@@ -146,16 +151,17 @@ df = melt(as.matrix(m))
 # --------------- Metadata processing -------------
 
 # read metadata
-if (!is.null(opt$metadata)) {mdata = read.table(opt$metadata, h=T, sep="\t")}
+if (!is.null(opt$col_metadata)) {col_mdata = read.table(opt$col_metadata, h=T, sep="\t")}
+if (!is.null(opt$row_metadata)) {row_mdata = read.table(opt$row_metadata, h=T, sep="\t")}
 # read which fields are needed from the metadata
 if (!is.null(opt$colSide_by)) {colSide_by = strsplit(opt$colSide_by, ",")[[1]]} else {colSide_by = NULL}
 if (!is.null(opt$rowSide_by)) {rowSide_by = strsplit(opt$rowSide_by, ",")[[1]]} else {rowSide_by = NULL}
-mdata_header = unique(c(opt$merge_mdata_on, colSide_by, rowSide_by))
-
+col_mdata_header = unique(c(opt$merge_col_mdata_on, colSide_by))
+row_mdata_header = unique(c(opt$merge_row_mdata_on, rowSide_by))
 
 # merge metadata and data (NB: The column Var2 stays)
-if (!is.null(opt$metadata)) {df = merge(df, mdata[mdata_header], by.x="Var2", by.y=opt$merge_mdata_on)}
-
+if (!is.null(opt$col_metadata)) {df = merge(df, col_mdata[col_mdata_header], by.x="Var2", by.y=opt$merge_col_mdata_on)}
+if (!is.null(opt$row_metadata)) {df = merge(df, row_mdata[row_mdata_header], by.x="Var1", by.y=opt$merge_row_mdata_on)}
 
 
 # ---------------- Dendrogram ----------------------
@@ -292,13 +298,14 @@ RowSides = list(); RowSide_legends = list()
 if (!is.null(opt$rowSide_by)) {
 	i=1;
 	for (rowSide in rowSide_by) {
-		rowSide_data = unique(df[c("Var2", rowSide)])
-		RowSide = ggplot(rowSide_data, aes(x=Var2, y="a"))
-		RowSide = RowSide + geom_tile(aes_string(fill=colSide), color="black")
+		rowSide_data = unique(df[c("Var1", rowSide)])
+		RowSide = ggplot(rowSide_data, aes(x=Var1, y="a"))
+		RowSide = RowSide + geom_tile(aes_string(fill=rowSide), color="black")
 		RowSide = RowSide + scale_x_discrete(limits = row_limits, labels=NULL, expand=c(0,0))
 		RowSide = RowSide + scale_y_discrete(labels=NULL, expand=c(0,0))
 		RowSide = RowSide + theme(plot.margin=unit(c(0.00, 0.00, 0.00, 0.01),"inch"))
 		RowSide = RowSide + labs(x=NULL, y=NULL)
+		RowSide = RowSide + coord_flip()
 		RowSide_legends[[i]] = g_legend(RowSide)
 		RowSide = RowSide + theme(legend.position="none")
 		RowSides[[i]] = RowSide; i=i+1;
@@ -331,11 +338,13 @@ matrix_vp = viewport(
 
 # >>>>> Matrix scale viewport <<<<<<<<<<<
 
-matrix_scale_h = 0.5
-matrix_scale_w = 1
+#matrix_scale_h = 0.5
+#matrix_scale_w = 1
+matrix_scale_h = sum(sapply(p1_legend$heights, convertUnit, "in"))
+matrix_scale_w = sum(sapply(p1_legend$widths, convertUnit, "in"))
 matrix_scale_vp = viewport(
-	y = matrix_vp_y + matrix_vp_h + 0.20,
-	x = matrix_vp_x + matrix_vp_w + 0.20,
+	y = matrix_vp_y + matrix_vp_h + 0.01,
+	x = matrix_vp_x + matrix_vp_w + 0.05,
 	h = matrix_scale_h,
 	w = matrix_scale_w,
 	default.units = "inch",
@@ -374,20 +383,20 @@ if (!is.null(opt$rowSide_by)){
 	RowSide_vps = list(); RowSide_label_vps = list()
 	for (i in 1:length(RowSides)) {
 		RowSide_vps[[i]] = viewport(
-			y = col_labels_inches, 
-			x = row_labels_inches,
-			h = 0.25,
-			w = matrix_vp_w - row_labels_inches,
+			y = matrix_vp_y + col_labels_inches, 
+			x = matrix_vp_x + matrix_vp_w + 0.25*(i-1),
+			h = matrix_vp_h - col_labels_inches,
+			w = 0.25,
 			default.units = "inch",
 			just = c("left", "bottom") 
 		 )
-		ColSide_label_vps[[i]] = viewport(
-			y = matrix_vp_h + 0.25*(i-1),
-			x = row_labels_inches,
-			h = 0.25,
-			w = max(row_labels_inches, as.numeric(strwidth(colSide_by, "inch"))),
+		RowSide_label_vps[[i]] = viewport(
+			y = matrix_vp_y + col_labels_inches,
+			x = matrix_vp_x + matrix_vp_w + 0.25*(i-1),
+			h = max(col_labels_inches, as.numeric(strwidth(rowSide_by, "inch"))),
+			w = 0.25,
 			default.units = "inch",
-			just = c("right", "bottom")
+			just = c("left", "top")
 		)
 	}
 }
@@ -470,6 +479,14 @@ if (!is.null(opt$colSide_by)) {
 	for (i in 1:length(ColSide_vps)) {
 		print(ColSides[[i]], vp=ColSide_vps[[i]], newpage=FALSE)
 		grid.text(colSide_by[i], x=unit(1,"npc"), just="right", vp=ColSide_label_vps[[i]], gp=gpar(face="bold"))
+	}
+}
+
+# Print row side colors
+if (!is.null(opt$rowSide_by)) {
+	for (i in 1:length(RowSide_vps)) {
+		print(RowSides[[i]], vp=RowSide_vps[[i]], newpage=FALSE)
+		grid.text(rowSide_by[i], y=unit(1,"npc"), just="right", rot=90, vp=RowSide_label_vps[[i]], gp=gpar(face="bold"))
 	}
 }
 
