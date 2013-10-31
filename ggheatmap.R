@@ -27,17 +27,11 @@ option_list <- list(
 make_option(c("-i", "--input_matrix"), 
 	help="the matrix you want to analyze"),
 
-make_option(c("-l", "--log"), action="store_true", default=FALSE, 
-	help="apply the log [default=%default]"),
-
-make_option(c("-p", "--pseudocount"), type="double", default=1e-04,
-	help="specify a pseudocount for the log [default=%default]"),
-
-#make_option(c("-m", "--metadata"), 
-#	help="one or more tsv file(s) with metadata on matrix experiment. Can be left empty."),
+#make_option(c("-l", "--log"), action="store_true", default=FALSE, 
+#	help="apply the log [default=%default]"),
 #
-#make_option(c("-M", "--merge_mdata_on"), default="labExpId",
-#	help="which field of the metadata corresponds to the column headers? [default=%default]"), 
+#make_option(c("-p", "--pseudocount"), type="double", default=1e-04,
+#	help="specify a pseudocount for the log [default=%default]"),
 
 make_option(c("--col_metadata"), 
 	help="one tsv file with metadata on matrix columns. Can be left empty."),
@@ -156,8 +150,11 @@ if (!is.null(opt$row_metadata)) {row_mdata = read.table(opt$row_metadata, h=T, s
 # read which fields are needed from the metadata
 if (!is.null(opt$colSide_by)) {colSide_by = strsplit(opt$colSide_by, ",")[[1]]} else {colSide_by = NULL}
 if (!is.null(opt$rowSide_by)) {rowSide_by = strsplit(opt$rowSide_by, ",")[[1]]} else {rowSide_by = NULL}
-col_mdata_header = unique(c(opt$merge_col_mdata_on, colSide_by))
-row_mdata_header = unique(c(opt$merge_row_mdata_on, rowSide_by))
+if (!is.null(opt$col_labels) && opt$col_labels != "none") {col_label_fields = strsplit(opt$col_labels,",")[[1]]} else {col_label_fields=NULL}
+if (!is.null(opt$row_labels) && opt$row_labels != "none") {row_label_fields = strsplit(opt$row_labels,",")[[1]]} else {row_label_fields=NULL}
+
+col_mdata_header = unique(c(opt$merge_col_mdata_on, colSide_by, col_label_fields))
+row_mdata_header = unique(c(opt$merge_row_mdata_on, rowSide_by, row_label_fields))
 
 # merge metadata and data (NB: The column Var2 stays)
 if (!is.null(opt$col_metadata)) {df = merge(df, col_mdata[col_mdata_header], by.x="Var2", by.y=opt$merge_col_mdata_on)}
@@ -216,6 +213,10 @@ if (is.null(opt$col_labels)) {
 } else {
 	if (opt$col_labels == "none") {
 		col_labels = NULL
+	} else {
+		col_label_fields[which(col_label_fields == opt$merge_col_mdata_on)] <- "Var2"
+		col_labels = apply(df[col_label_fields], 1, paste, collapse=";")
+		col_labels <- col_labels[with(df, match(colnames(m), Var2))]
 	}
 }
 
@@ -224,6 +225,10 @@ if (is.null(opt$row_labels)) {
 } else {
 	if (opt$row_labels == "none") {
 		row_labels = NULL
+	} else {
+		row_label_fields[which(row_label_fields == opt$merge_row_mdata_on)] <- "Var1"
+		row_labels = apply(df[row_label_fields], 1, paste, collapse=";")
+		row_labels <- row_labels[with(df, match(rownames(m), Var1))]
 	}
 }
 
@@ -260,7 +265,7 @@ col_labels_inches = max(strwidth(col_labels, units="in", cex=base_size*(as.numer
 
 p1 = ggplot(df, aes(x=Var2, y=Var1))
 p1 = p1 + geom_tile(aes(fill=value))
-p1 = p1 + theme(axis.text.x = element_text(angle=90, vjust=0.5))
+p1 = p1 + theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1))
 p1 = p1 + scale_x_discrete(expand=c(0,0), limits=col_limits, labels=col_labels)
 p1 = p1 + scale_y_discrete(limits=row_limits, labels=row_labels)
 p1 = p1 + scale_fill_gradient2()
