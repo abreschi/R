@@ -25,13 +25,13 @@ suppressPackageStartupMessages(library("optparse"))
 option_list <- list(
 
 make_option(c("-i", "--input_matrix"), 
-	help="the matrix you want to analyze"),
+	help="the matrix you want to analyze. \"stdin\" to read from standard input"),
 
-#make_option(c("-l", "--log"), action="store_true", default=FALSE, 
-#	help="apply the log [default=%default]"),
-#
-#make_option(c("-p", "--pseudocount"), type="double", default=1e-04,
-#	help="specify a pseudocount for the log [default=%default]"),
+make_option(c("-l", "--log"), action="store_true", default=FALSE, 
+	help="apply the log. NAs are treated as 0s and a pseudocount is added if specified [default=%default]"),
+
+make_option(c("-p", "--pseudocount"), type="double", default=1e-04,
+	help="specify a pseudocount for the log [default=%default]"),
 
 make_option(c("--col_metadata"), 
 	help="one tsv file with metadata on matrix columns. Can be left empty."),
@@ -72,6 +72,12 @@ make_option(c("-c", "--hclust"), default="complete",
 
 make_option(c("-B", "--base_size"), default=16,
 	help="The font base size as defined in ggplot2. [default=%default]"),
+
+make_option(c("-W", "--width"), type=integer,
+	help="Choose the heatmap width in inches. Default is proportional to the number of columns"),
+
+make_option(c("-H", "--height"), type=integer,
+	help="Choose the heatmap height in inches. Default is proportional to the number of rows"),
 
 make_option(c("-o", "--output"), 
 	help="Output file name, with the extension. [default=%default]", default="ggheatmap.out.pdf")
@@ -128,14 +134,22 @@ theme_update(axis.ticks.length = unit(0.01, "inch"))
 
 
 # read table
-m = read.table(opt$input_matrix, h=T)
-m = m[1:50,]
+if (opt$input_matrix == "stdin") {
+	m = read.table(file("stdin"), h=T)} else {
+	m = read.table(opt$input_matrix, h=T)
+}
+
+
+#m = m[1:1000,]
 
 # remove potential gene id columns
 char_cols <- which(sapply(m, class) == 'character')
 sprintf("WARNING: column %s is character, so it is removed from the analysis", char_cols)
 if (length(char_cols) == 0) {genes = rownames(m)}
 if (length(char_cols) != 0) {genes = m[,char_cols]; m = m[,-(char_cols)]}
+
+# apply the log10 if needed
+if (opt$log) {m <- log10(replace(m, is.na(m), 0) + opt$pseudocount)}
 
 # melt the data frame
 df = melt(as.matrix(m))
@@ -330,8 +344,8 @@ if (!is.null(opt$rowSide_by)) {
 
 matrix_vp_y = max(0, as.numeric(strwidth(rowSide_by, "in")) - col_labels_inches)
 matrix_vp_x = max(0, as.numeric(strwidth(colSide_by, "in")) - row_labels_inches)
-matrix_vp_h = 8; 
-matrix_vp_w = base_size/72.27 * ncol(m) + row_labels_inches
+if (is.null(opt$height)) {matrix_vp_h = base_size/72.27 * nrow(m) + col_labels_inches} else {matrix_vp_h = opt$height}
+if (is.null(opt$height)) {matrix_vp_w = base_size/72.27 * ncol(m) + row_labels_inches} else {matrix_vp_w = opt$width}
 matrix_vp = viewport(
 	y = matrix_vp_y,
 	x = matrix_vp_x, 
