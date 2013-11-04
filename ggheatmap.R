@@ -28,7 +28,7 @@ make_option(c("-i", "--input_matrix"),
 	help="the matrix you want to analyze. \"stdin\" to read from standard input"),
 
 make_option(c("-l", "--log"), action="store_true", default=FALSE, 
-	help="apply the log. NAs are treated as 0s and a pseudocount is added if specified [default=%default]"),
+	help="apply the log10. NAs are treated as 0s and a pseudocount is added if specified [default=%default]"),
 
 make_option(c("-p", "--pseudocount"), type="double", default=1e-04,
 	help="specify a pseudocount for the log [default=%default]"),
@@ -73,10 +73,10 @@ make_option(c("-c", "--hclust"), default="complete",
 make_option(c("-B", "--base_size"), default=16,
 	help="The font base size as defined in ggplot2. [default=%default]"),
 
-make_option(c("-W", "--width"), type=integer,
+make_option(c("-W", "--width"), type="integer",
 	help="Choose the heatmap width in inches. Default is proportional to the number of columns"),
 
-make_option(c("-H", "--height"), type=integer,
+make_option(c("-H", "--height"), type="integer",
 	help="Choose the heatmap height in inches. Default is proportional to the number of rows"),
 
 make_option(c("-o", "--output"), 
@@ -88,8 +88,9 @@ make_option(c("-o", "--output"),
 parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
 arguments <- parse_args(parser, positional_arguments = TRUE)
 opt <- arguments$options
-
 print(opt)
+
+cbbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#000000", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
 #------------#
 # LIBRARIES  #
@@ -190,8 +191,8 @@ if (opt$col_dendro) {
 	col_ggdendro = ggplot(segment(colHC_data))
 	col_ggdendro = col_ggdendro + geom_segment(aes(x=x, y=y, xend=xend, yend=yend))
 	#col_ggdendro = col_ggdendro + coord_flip()
-	col_ggdendro = col_ggdendro + scale_x_continuous(expand=c(0.05,0), labels=NULL) 
-	col_ggdendro = col_ggdendro + scale_y_continuous(expand=c(0,0), labels=NULL)
+	col_ggdendro = col_ggdendro + scale_x_continuous(expand=c(0.0, 0.0), labels=NULL) 
+	col_ggdendro = col_ggdendro + scale_y_continuous(expand=c(0.0, 0.0), labels=NULL)
 	col_ggdendro = col_ggdendro + theme(plot.margin=unit(c(0.10, 0.00, 0.00, 0.01), "inch"))
 	col_ggdendro = col_ggdendro + theme_dendro()
 	col_ggdendro = col_ggdendro + labs(x=NULL, y=NULL)
@@ -210,8 +211,8 @@ if (opt$row_dendro) {
 	row_ggdendro = ggplot(segment(rowHC_data))
 	row_ggdendro = row_ggdendro + geom_segment(aes(x=x, y=y, xend=xend, yend=yend))
 	row_ggdendro = row_ggdendro + coord_flip()
-	row_ggdendro = row_ggdendro + scale_x_continuous(expand=c(0.015,0), labels=NULL) 
-	row_ggdendro = row_ggdendro + scale_y_continuous(expand=c(0,0), labels=NULL)
+	row_ggdendro = row_ggdendro + scale_x_continuous(expand=c(0.0, 0.5), labels=NULL) 
+	row_ggdendro = row_ggdendro + scale_y_continuous(expand=c(0.0, 0.0), labels=NULL)
 	row_ggdendro = row_ggdendro + theme(plot.margin=unit(c(0.00, 0.10, 0.00, 0.00), "inch"))
 	row_ggdendro = row_ggdendro + theme_dendro()
 	row_ggdendro = row_ggdendro + labs(x=NULL, y=NULL)
@@ -322,6 +323,7 @@ if (!is.null(opt$rowSide_by)) {
 		RowSide = RowSide + geom_tile(aes_string(fill=rowSide), color="black")
 		RowSide = RowSide + scale_x_discrete(limits = row_limits, labels=NULL, expand=c(0,0))
 		RowSide = RowSide + scale_y_discrete(labels=NULL, expand=c(0,0))
+		RowSide = RowSide + scale_fill_manual(values=cbbPalette)
 		RowSide = RowSide + theme(plot.margin=unit(c(0.00, 0.00, 0.00, 0.01),"inch"))
 		RowSide = RowSide + labs(x=NULL, y=NULL)
 		RowSide = RowSide + coord_flip()
@@ -345,7 +347,7 @@ if (!is.null(opt$rowSide_by)) {
 matrix_vp_y = max(0, as.numeric(strwidth(rowSide_by, "in")) - col_labels_inches)
 matrix_vp_x = max(0, as.numeric(strwidth(colSide_by, "in")) - row_labels_inches)
 if (is.null(opt$height)) {matrix_vp_h = base_size/72.27 * nrow(m) + col_labels_inches} else {matrix_vp_h = opt$height}
-if (is.null(opt$height)) {matrix_vp_w = base_size/72.27 * ncol(m) + row_labels_inches} else {matrix_vp_w = opt$width}
+if (is.null(opt$width)) {matrix_vp_w = base_size/72.27 * ncol(m) + row_labels_inches} else {matrix_vp_w = opt$width}
 matrix_vp = viewport(
 	y = matrix_vp_y,
 	x = matrix_vp_x, 
@@ -526,5 +528,5 @@ if (!is.null(opt$colSide_by) || !is.null(opt$rowSide_by)) {
 
 dev.off()
 
-
+file.remove("Rplots.pdf")
 q(save="no")
