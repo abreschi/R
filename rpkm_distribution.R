@@ -33,6 +33,7 @@ make_option(c("-v", "--value"), help="give a name for the value you are plotting
 make_option(c("-w", "--wrap"), action="store_true", help="say if you want the density plot in facet_wrap [default=%default]", default=FALSE), 
 make_option(c("-T", "--title"), help="give a title to the plot [default=%default]", default=""), 
 make_option(c("-P", "--palette"), help="palette name [default=%default]", default="cbbPalette"),
+make_option(c("-G", "--no_guide"), help="use this to remove the legend from the plot [default=%default]", default=FALSE, action="store_true"),
 make_option(c("-t", "--tags"), help="comma-separated field names you want to display in the labels. Leave default for using column names [default=%default]", default="labExpId")
 )
 
@@ -145,6 +146,8 @@ gp = gp + scale_fill_manual(values = cbbPalette)
 gp = gp + scale_x_continuous(breaks = floor(min(df[is.finite(df[,opt$value]),opt$value])):ceiling(max(df[is.finite(df[,opt$value]),opt$value])))
 gp = gp + theme(axis.text=element_text(size=40/log10(length(df$labels))))
 }
+
+if (opt$no_guide) {gp = gp + theme(legend.position="none")}
 
 gp
 
