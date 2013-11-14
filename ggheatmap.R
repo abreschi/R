@@ -177,7 +177,6 @@ if (!is.null(opt$col_metadata)) {
 }
 if (!is.null(opt$row_metadata)) {
 	row_mdata[opt$merge_row_mdata_on] <- gsub(",", ".", row_mdata[,opt$merge_row_mdata_on])
-	print(head(row_mdata[opt$merge_row_mdata_on]))
 	df = merge(df, row_mdata[row_mdata_header], by.x="Var1", by.y=opt$merge_row_mdata_on)
 }
 
