@@ -156,7 +156,6 @@ if (opt$log) {m <- log10(replace(m, is.na(m), 0) + opt$pseudocount)}
 df = melt(as.matrix(m))
 
 
-
 # --------------- Metadata processing -------------
 
 # read metadata
@@ -172,9 +171,15 @@ col_mdata_header = unique(c(opt$merge_col_mdata_on, colSide_by, col_label_fields
 row_mdata_header = unique(c(opt$merge_row_mdata_on, rowSide_by, row_label_fields))
 
 # merge metadata and data (NB: The column Var2 stays)
-if (!is.null(opt$col_metadata)) {df = merge(df, col_mdata[col_mdata_header], by.x="Var2", by.y=opt$merge_col_mdata_on)}
-if (!is.null(opt$row_metadata)) {df = merge(df, row_mdata[row_mdata_header], by.x="Var1", by.y=opt$merge_row_mdata_on)}
-
+if (!is.null(opt$col_metadata)) {
+	col_mdata[opt$merge_col_mdata_on] <- gsub(",", ".", col_mdata[,opt$merge_col_mdata_on])
+	df = merge(df, col_mdata[col_mdata_header], by.x="Var2", by.y=opt$merge_col_mdata_on)
+}
+if (!is.null(opt$row_metadata)) {
+	row_mdata[opt$merge_row_mdata_on] <- gsub(",", ".", row_mdata[,opt$merge_row_mdata_on])
+	print(head(row_mdata[opt$merge_row_mdata_on]))
+	df = merge(df, row_mdata[row_mdata_header], by.x="Var1", by.y=opt$merge_row_mdata_on)
+}
 
 # ---------------- Dendrogram ----------------------
 
