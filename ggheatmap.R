@@ -195,7 +195,7 @@ if (opt$col_dendro) {
 	col_ggdendro = ggplot(segment(colHC_data))
 	col_ggdendro = col_ggdendro + geom_segment(aes(x=x, y=y, xend=xend, yend=yend))
 	#col_ggdendro = col_ggdendro + coord_flip()
-	col_ggdendro = col_ggdendro + scale_x_continuous(expand=c(0.0, 0.0), labels=NULL) 
+	col_ggdendro = col_ggdendro + scale_x_continuous(expand=c(0.0, 0.5), labels=NULL) 
 	col_ggdendro = col_ggdendro + scale_y_continuous(expand=c(0.0, 0.0), labels=NULL)
 	col_ggdendro = col_ggdendro + theme(plot.margin=unit(c(0.10, 0.00, 0.00, 0.01), "inch"))
 	col_ggdendro = col_ggdendro + theme_dendro()
