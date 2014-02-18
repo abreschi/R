@@ -24,7 +24,9 @@ make_option(c("-o", "--output"), help="additional flags for otuput", default="ou
 make_option(c("-d", "--outdir"), help="directory for the output", default="./"),
 #make_option(c("-c", "--color_by"), help="choose the color you want to color by [default=NA]", type='character', default=NA),
 make_option(c("-f", "--field"), help="dashboard field by which the individuals are grouped"),
-make_option(c("-W", "--width"), default=9, help="output width in inches")
+make_option(c("-H", "--height"), default=5, help="output height in inches [default=%default]"),
+make_option(c("-W", "--width"), default=9, help="output width in inches [default=%default]"),
+make_option(c("--facet_nrow"), default=1, help="number of rows when faceting [default=%default]")
 
 #make_option(c("-t", "--tags"), help="comma-separated field names you want to display in the labels", default="cell,sex,age")
 )
@@ -110,7 +112,8 @@ gp = ggplot(new_df, aes(x=facet2, y=prop))
 gp = gp + geom_boxplot(aes(fill=as.character(det)) )
 #gp = gp + facet_grid(.~cell, scales='free_x')
 if (!is.null(opt$field)) {
-gp = gp + facet_grid(sprintf(".~%s", opt$field), scales='free_x')}
+#gp = gp + facet_grid(sprintf(".~%s", opt$field), scales='free_x')}
+gp = gp + facet_wrap(as.formula(sprintf("~%s", opt$field)), nrow=opt$nrow, scales='free_x')}
 gp = gp + geom_point(data=cumul_df, aes(x=facet2, y=prop, col=as.character(det)), size = 4, alpha = 0.7)
 gp = gp + geom_point(data=cumul_df, aes(x=facet2, y=prop), col='black', size = 4, alpha = 0.7, shape=1)
 gp = gp + labs(y='Proportion of nucleotides (%)', x="Genomic domain (D)")
@@ -121,11 +124,11 @@ gp = gp + scale_color_hue(name='Cumulative',labels = c("Genome covered", "Covere
 
 
 w = opt$width
+h = opt$height
 
-
-ggsave(filename=sprintf("%s/%s.pdf", opt$outdir, output), w=w, h=5)
-ggsave(filename=sprintf("%s/%s.png", opt$outdir, output), w=w, h=5)
-ggsave(filename=sprintf("%s/%s.eps", opt$outdir, output), w=w, h=5)
+ggsave(filename=sprintf("%s/%s.pdf", opt$outdir, output), w=w, h=h)
+ggsave(filename=sprintf("%s/%s.png", opt$outdir, output), w=w, h=h)
+ggsave(filename=sprintf("%s/%s.eps", opt$outdir, output), w=w, h=h)
 
 
 q(save='no')
