@@ -21,8 +21,11 @@ option_list <- list(
 make_option(c("-i", "--input_matrix"), help="the matrix you want to analyze"),
 make_option(c("-m", "--metadata"), help="tsv file with metadata on matrix experiment"),
 make_option(c("-o", "--output"), help="additional flags for otuput", default="out"),
+make_option(c("-d", "--outdir"), help="directory for the output", default="./"),
 #make_option(c("-c", "--color_by"), help="choose the color you want to color by [default=NA]", type='character', default=NA),
-make_option(c("-f", "--field"), help="dashboard field by which the individuals are grouped")
+make_option(c("-f", "--field"), help="dashboard field by which the individuals are grouped"),
+make_option(c("-W", "--width"), default=9, help="output width in inches")
+
 #make_option(c("-t", "--tags"), help="comma-separated field names you want to display in the labels", default="cell,sex,age")
 )
 
@@ -117,10 +120,12 @@ gp = gp + scale_fill_hue(name='',labels = c("Genome covered", "Covered by RNA-se
 gp = gp + scale_color_hue(name='Cumulative',labels = c("Genome covered", "Covered by RNA-seq", "RNA-seq distribution"))
 
 
+w = opt$width
 
-ggsave(filename=sprintf("%s.pdf", output), w=9, h=5)
-ggsave(filename=sprintf("%s.png", output), w=9, h=5)
-ggsave(filename=sprintf("%s.eps", output), w=9, h=5)
+
+ggsave(filename=sprintf("%s/%s.pdf", opt$outdir, output), w=w, h=5)
+ggsave(filename=sprintf("%s/%s.png", opt$outdir, output), w=w, h=5)
+ggsave(filename=sprintf("%s/%s.eps", opt$outdir, output), w=w, h=5)
 
 
 q(save='no')
