@@ -79,6 +79,15 @@ make_option(c("-W", "--width"), type="integer",
 make_option(c("-H", "--height"), type="integer",
 	help="Choose the heatmap height in inches. Default is proportional to the number of rows"),
 
+make_option(c("--fill_high"), default="blue",
+	help="Top color to fill the matrix. [default=%default]"),
+
+make_option(c("--fill_mid"), default="white",
+	help="Mid color to fill the matrix. [default=%default]"),
+
+make_option(c("--fill_low"), default="red",
+	help="Bottom color to fill the matrix. [default=%default]"),
+
 make_option(c("-o", "--output"), 
 	help="Output file name, with the extension. [default=%default]", default="ggheatmap.out.pdf")
 
@@ -297,7 +306,7 @@ p1 = p1 + geom_tile(aes(fill=value))
 p1 = p1 + theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1))
 p1 = p1 + scale_x_discrete(expand=c(0,0), limits=col_limits, labels=col_labels)
 p1 = p1 + scale_y_discrete(limits=row_limits, labels=row_labels)
-p1 = p1 + scale_fill_gradient2()
+p1 = p1 + scale_fill_gradient2(high = opt$fill_high, low=opt$fill_low, mid=opt$fill_mid)
 p1 = p1 + theme(plot.margin=unit(c(0.00, 0.00, 0.01, 0.01),"inch"))
 p1 = p1 + labs(x=NULL, y=NULL)
 p1 = p1 + guides(fill=guide_colourbar(title.position="top", direction="horizontal", title.hjust=0))
