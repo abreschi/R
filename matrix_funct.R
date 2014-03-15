@@ -40,7 +40,7 @@ opt$replace_na = FALSE
 option_list <- list(
 
 make_option(c("-i", "--input_matrix"), 
-	help="the matrix you want to analyze"),
+	help="the matrix you want to analyze. Stdin to read from stdin"),
 
 make_option(c("-l", "--log"), action="store_true", default=FALSE, 
 	help="apply the log10, before applying the function [default=%default]"),
@@ -64,14 +64,16 @@ make_option(c("-f", "--func"), default="mean",
 	help="choose the function <mean>, <sd>, <sum>, <median>, <entropy> [default=%default]"),
 
 make_option(c("-n", "--not_na"), type="double", default=1, 
-	help="fraction of not NA values in the vector for the mean [default=%default]")
+	help="fraction of not NA values in the vector for the mean [default=%default]"),
 
+make_option(c("--verbose"), action="store_true", default=FALSE,
+	help="verbose output")
 )
 
 parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
 arguments <- parse_args(parser, positional_arguments = TRUE)
 opt <- arguments$options
-print(opt)
+if (opt$verbose) {print(opt)}
 
 
 ###############
@@ -79,7 +81,11 @@ print(opt)
 ###############
 
 # read options
-m <- read.table(opt$input_matrix, h=T)
+if (opt$input == "stdin") {
+	m = read.table(file("stdin"), h=T) 
+} else {
+	m = read.table(opt$input_matrix, h=T)
+}
 
 # Remove non-numeric columns
 char_cols <- which(sapply(m, class) == 'character')
@@ -97,38 +103,43 @@ if (opt$log) {m = log10(m + opt$pseudocount)}
 # Functions
 # ----------------
 
-my_mean = function(x) {
-ifelse((sum(!is.na(x)) < (opt$not_na*length(x))), NA, mean(x,na.rm=T) )
+#my_mean = function(x) {
+#ifelse((sum(!is.na(x)) < (opt$not_na*length(x))), NA, mean(x,na.rm=T) )
+#}
+
+#my_sd = function(x) {
+#ifelse((sum(!is.na(x)) < (opt$not_na*length(x))), NA, sd(x,na.rm=T) )
+#}
+#
+#my_sum = function(x) {
+#ifelse((sum(!is.na(x)) < (opt$not_na*length(x))), NA, sum(x,na.rm=T) )
+#}
+#
+#my_median = function(x) {
+#ifelse((sum(!is.na(x)) < (opt$not_na*length(x))), NA, median(x,na.rm=T) )
+#}
+#
+#my_entropy = function(x) {
+#ifelse((sum(!is.na(x)) < (opt$not_na*length(x))), NA, entropy(na.omit(x)) )
+#}
+
+
+#if (opt$func == "mean") {func = my_mean}
+#if (opt$func == "sd") {func = my_sd}
+#if (opt$func == "sum") {func = my_sum}
+#if (opt$func == "median") {func = my_median}
+#if (opt$func == "entropy") {func = my_entropy}
+
+func = function(x) {
+	ifelse((sum(!is.na(x)) < (opt$not_na*length(x))), NA, eval(parse(text=opt$func))(x,na.rm=T))
 }
-
-my_sd = function(x) {
-ifelse((sum(!is.na(x)) < (opt$not_na*length(x))), NA, sd(x,na.rm=T) )
-}
-
-my_sum = function(x) {
-ifelse((sum(!is.na(x)) < (opt$not_na*length(x))), NA, sum(x,na.rm=T) )
-}
-
-my_median = function(x) {
-ifelse((sum(!is.na(x)) < (opt$not_na*length(x))), NA, median(x,na.rm=T) )
-}
-
-my_entropy = function(x) {
-ifelse((sum(!is.na(x)) < (opt$not_na*length(x))), NA, entropy(na.omit(x)) )
-}
-
-
-if (opt$func == "mean") {func = my_mean}
-if (opt$func == "sd") {func = my_sd}
-if (opt$func == "sum") {func = my_sum}
-if (opt$func == "median") {func = my_median}
-if (opt$func == "entropy") {func = my_entropy}
-
-
 
 # apply the function to the whole matrix if no value is provided
 if (is.null(opt$mean_by)) {
 	new_m = setNames(data.frame(apply(m, 1, func)), opt$func)
+#	if (length(char_cols)!=0) {
+		new_m = cbind(genes, new_m)
+#	}
 } else {
 
 	# apply the function to the levels of the specified factors
@@ -147,11 +158,14 @@ if (is.null(opt$mean_by)) {
 	aggr = aggregate(as.formula(sprintf("value~gene_index+%s", paste(mean_by,collapse="+"))), df, func, na.action="na.pass")
 	aggr = dcast(aggr, as.formula(sprintf("gene_index~%s", paste(mean_by,collapse="+"))))
 	new_m = aggr
+
+	if (length(char_cols)==0) {new_m = cbind(gene=genes, new_m)}
+	if (length(char_cols)!=0) {new_m = merge(genes, new_m, by.y="gene_index", by.x="row.names")[,-1]}
 }
 
 
-if (length(char_cols)==0) {new_m = cbind(gene=genes, new_m)}
-if (length(char_cols)!=0) {new_m = merge(genes, new_m, by.y="gene_index", by.x="row.names")[,-1]}
+#if (length(char_cols)==0) {new_m = cbind(gene=genes, new_m)}
+#if (length(char_cols)!=0) {new_m = merge(genes, new_m, by.y="gene_index", by.x="row.names")[,-1]}
 
 
 
