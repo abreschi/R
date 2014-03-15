@@ -38,31 +38,44 @@ make_option(c("-o", "--output"), default="detected.features.pdf",
     help="output file name. [default=%default]"),
 
 make_option(c("--header"), action="store_true", default=FALSE,
-	help="input file has header"),
+	help="input file has header [default=%default]"),
 
 make_option(c("-x", "--x_index"), default=1, type="integer",
-	help="column index for the x. [default=%deafult]"),
+	help="column index for the x axis. [default=%default]"),
 
 make_option(c("-y", "--y_index"), default=2, type="integer",
-	help="column index for the y. [default=%deafult]"),
+	help="column index for the y axis. [default=%default]"),
+
+make_option(c("-F", "--fun"), type="character", default="mean_sdl",
+	help="function to aggregate [default=%default]"),
+
+make_option(c("-f", "--facet_by"), type="integer", 
+	help="column index to facet by"),
+
+make_option(c("--facet_scale"), default="fixed",
+	help="facet scale: fixed | free | free_x | free_y"),
+
+make_option(c("--y_title"), default="Percentage of detected features",
+	help="title for the y axis [default=%default]"),
+
+make_option(c("-B", "--base_size"), default=16,
+	help="font base size [default=%default]"),
+
+make_option(c("-W", "--width"), default=7,
+	help="width of the plot in inches [default=%default]"),
+
+make_option(c("-H", "--height"), default=5,
+	help="height of the plot in inches [default=%default]")
 
 #make_option(c("-m", "--metadata"), 
 #	help="metadata index file"),
 #
 #make_option(c("--merge_mdata_on"), default="labExpId",
 #	help="field to merge the metadata on [default=%default]"),
-
-make_option(c("-f", "--facet_by"), type="integer", 
-	help="column index to facet by"),
-
-make_option(c("--mean_by"), default="labExpId",
-	help="metadata field to average by. [default=%default]"),
-
-make_option(c("--y_title"), default="Percentage of detected features",
-	help="title for the y axis [default=%default]"),
-
-make_option(c("-B", "--base_size"), default=16,
-	help="font base size [default=%default]")
+#
+#make_option(c("--mean_by"), default="labExpId",
+#	help="metadata field to average by. [default=%default]"),
+#
 
 )
 
@@ -99,17 +112,17 @@ x = colnames(df)[opt$x_index]
 y = colnames(df)[opt$y_index]
 
 gp = ggplot(df, aes_string(x=x, y=y))
-gp = gp + stat_summary(fun.data="mean_sdl", mult=1, shape=15, size=1, color="blue")
+gp = gp + stat_summary(fun.data=opt$fun, mult=1, shape=15, size=1, color="orange", fill="orange")
 gp = gp + theme(axis.text.x=element_text(angle=45, hjust=1))
 gp = gp + labs(y=opt$y_title, x="")
 
 if (!is.null(opt$facet_by)) {
 	facet = as.formula(sprintf("~%s", colnames(df)[opt$facet_by]))
-	gp = gp + facet_wrap(facet, nrow=1)
+	gp = gp + facet_wrap(facet, nrow=1, scale=opt$facet_scale)
 }
 
 
-ggsave(opt$output, h=5, w=7)
+ggsave(opt$output, h=opt$height, w=opt$width)
 
 q(save="no")
 
