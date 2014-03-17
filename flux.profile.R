@@ -19,7 +19,7 @@ make_option(c("-o", "--output"), default="flux.profile.out.pdf",
 make_option(c("-t", "--title"), default="",
 	help="Plot title [default=%default]"),
 
-make_option(c("--palette"), type="character", default="/users/rg/abreschi/R/palettes/Accent.8.txt",
+make_option(c("--palette"), type="character", default="/users/rg/abreschi/R/palettes/rainbow.2.txt",
 	help="file with the palette [default=%default]"),
 
 make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
