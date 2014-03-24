@@ -57,6 +57,9 @@ make_option(c("--colSide_by"),
 make_option(c("--rowSide_by"), 
 	help="Specify the field(s), you want the row sides coloured by. If empty no color side is added."),
 
+make_option(c("--rowSide_palette"), default="~/R/palettes/cbbPalette.8.txt",
+	help="Palette for rowSide colors [default=%default]"),
+
 make_option(c("--col_dendro"), action="store_true", default=FALSE, 
 	help="Print the column dendrogram [default=%default]"),
 
@@ -88,8 +91,11 @@ make_option(c("--fill_mid"), default="white",
 make_option(c("--fill_low"), default="red",
 	help="Bottom color to fill the matrix. [default=%default]"),
 
-make_option(c("-o", "--output"), 
-	help="Output file name, with the extension. [default=%default]", default="ggheatmap.out.pdf")
+make_option(c("-o", "--output"), default="ggheatmap.out.pdf",
+	help="Output file name, with the extension. [default=%default]"),
+
+make_option(c("-v", "--verbose"), default=FALSE, action="store_true",
+	help="Verbose output [default=%default]")
 
 )
 
@@ -97,9 +103,8 @@ make_option(c("-o", "--output"),
 parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
 arguments <- parse_args(parser, positional_arguments = TRUE)
 opt <- arguments$options
-print(opt)
+if (opt$verbose) {print(opt)}
 
-cbbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#000000", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
 #------------#
 # LIBRARIES  #
@@ -149,12 +154,18 @@ if (opt$input_matrix == "stdin") {
 	m = read.table(opt$input_matrix, h=T)
 }
 
+# read palette file
+rowSide_palette = read.table(opt$rowSide_palette, h=F, comment.char="%")$V1
+
 
 #m = m[1:1000,]
 
 # remove potential gene id columns
 char_cols <- which(sapply(m, class) == 'character')
-sprintf("WARNING: column %s is character, so it is removed from the analysis", char_cols)
+if (opt$verbose) {
+	cat("Columns removed\n")
+	sprintf("WARNING: column %s is character, so it is removed from the analysis", char_cols)
+}
 if (length(char_cols) == 0) {genes = rownames(m)}
 if (length(char_cols) != 0) {genes = m[,char_cols]; m = m[,-(char_cols)]}
 
@@ -171,6 +182,7 @@ df = melt(as.matrix(m))
 # read metadata
 if (!is.null(opt$col_metadata)) {col_mdata = read.table(opt$col_metadata, h=T, sep="\t", quote="\"")}
 if (!is.null(opt$row_metadata)) {row_mdata = read.table(opt$row_metadata, h=T, sep="\t", quote="\"")}
+
 # read which fields are needed from the metadata
 if (!is.null(opt$colSide_by)) {colSide_by = strsplit(opt$colSide_by, ",")[[1]]} else {colSide_by = NULL}
 if (!is.null(opt$rowSide_by)) {rowSide_by = strsplit(opt$rowSide_by, ",")[[1]]} else {rowSide_by = NULL}
@@ -179,7 +191,7 @@ if (!is.null(opt$row_labels) && opt$row_labels != "none") {row_label_fields = st
 
 col_mdata_header = unique(c(opt$merge_col_mdata_on, colSide_by, col_label_fields))
 row_mdata_header = unique(c(opt$merge_row_mdata_on, rowSide_by, row_label_fields))
-
+row_mdata_header = c(opt$merge_row_mdata_on, setdiff(row_mdata_header, intersect(col_mdata_header, row_mdata_header)))
 
 
 # merge metadata and data (NB: The column Var2 stays)
@@ -187,6 +199,7 @@ if (!is.null(opt$col_metadata)) {
 	col_mdata[opt$merge_col_mdata_on] <- gsub(",", ".", col_mdata[,opt$merge_col_mdata_on])
 	df = merge(df, unique(col_mdata[col_mdata_header]), by.x="Var2", by.y=opt$merge_col_mdata_on)
 }
+
 if (!is.null(opt$row_metadata)) {
 	row_mdata[opt$merge_row_mdata_on] <- gsub(",", ".", row_mdata[,opt$merge_row_mdata_on])
 	df = merge(df, unique(row_mdata[row_mdata_header]), by.x="Var1", by.y=opt$merge_row_mdata_on)
@@ -198,12 +211,15 @@ if (!is.null(opt$row_metadata)) {
 	}
 }
 
+if (opt$verbose) {cat("merged metadata\n")}
+
 
 # ---------------- Dendrogram ----------------------
 
 # COLUMNS
 
 if (opt$col_dendro) {
+	if (opt$verbose) {cat("column dendrogram... ")}
 	if (opt$dist == "p" || opt$dist =="s") {
 		colDist = as.dist(1-cor(m, method=opt$dist, use="p"))
 	} else {
@@ -219,11 +235,14 @@ if (opt$col_dendro) {
 	col_ggdendro = col_ggdendro + theme(plot.margin=unit(c(0.10, 0.00, 0.00, 0.01), "inch"))
 	col_ggdendro = col_ggdendro + theme_dendro()
 	col_ggdendro = col_ggdendro + labs(x=NULL, y=NULL)
+	if (opt$verbose) {cat("DONE\n")}
 }
+
 
 # ROWS
 
 if (opt$row_dendro) {
+	if (opt$verbose) {cat("row dendrogram... ")}
 	if (opt$dist == "p" || opt$dist =="s") {
 		rowDist = as.dist(1-cor(t(m), method=opt$dist, use="p"))
 	} else {
@@ -239,6 +258,7 @@ if (opt$row_dendro) {
 	row_ggdendro = row_ggdendro + theme(plot.margin=unit(c(0.00, 0.10, 0.00, 0.00), "inch"))
 	row_ggdendro = row_ggdendro + theme_dendro()
 	row_ggdendro = row_ggdendro + labs(x=NULL, y=NULL)
+	if (opt$verbose) {cat("DONE\n")}
 }
 
 
@@ -246,6 +266,7 @@ if (opt$row_dendro) {
 # ------------------- Row and column labels ---------
 
 # Define the row and column labels
+if (opt$verbose) {cat("column labels... ")}
 if (is.null(opt$col_labels)) {
 	col_labels = colnames(m)
 } else {
@@ -253,11 +274,17 @@ if (is.null(opt$col_labels)) {
 		col_labels = NULL
 	} else {
 		col_label_fields[which(col_label_fields == opt$merge_col_mdata_on)] <- "Var2"
+		print(col_label_fields)
+		print(colnames(df))
 		col_labels = apply(df[col_label_fields], 1, paste, collapse=";")
 		col_labels <- col_labels[with(df, match(colnames(m), Var2))]
 	}
 }
+if (opt$verbose) {cat("DONE\n")}
 
+
+
+if (opt$verbose) {cat("row labels... ")}
 if (is.null(opt$row_labels)) {
 	row_labels = rownames(m)
 } else {
@@ -269,6 +296,7 @@ if (is.null(opt$row_labels)) {
 		row_labels <- row_labels[with(df, match(rownames(m), Var1))]
 	}
 }
+if (opt$verbose) {cat("DONE\n")}
 
 
 if (opt$col_dendro) {
@@ -346,7 +374,8 @@ if (!is.null(opt$rowSide_by)) {
 		RowSide = RowSide + geom_tile(aes_string(fill=rowSide), color="black")
 		RowSide = RowSide + scale_x_discrete(limits = row_limits, labels=NULL, expand=c(0,0))
 		RowSide = RowSide + scale_y_discrete(labels=NULL, expand=c(0,0))
-		RowSide = RowSide + scale_fill_manual(values=cbbPalette)
+#		RowSide = RowSide + scale_fill_manual(values=cbbPalette)
+		RowSide = RowSide + scale_fill_manual(values=rowSide_palette)
 		RowSide = RowSide + theme(plot.margin=unit(c(0.00, 0.00, 0.00, 0.01),"inch"))
 		RowSide = RowSide + labs(x=NULL, y=NULL)
 		RowSide = RowSide + coord_flip()
