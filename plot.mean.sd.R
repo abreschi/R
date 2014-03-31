@@ -49,6 +49,12 @@ make_option(c("-y", "--y_index"), default=2, type="integer",
 make_option(c("-F", "--fun"), type="character", default="mean_sdl",
 	help="function to aggregate [default=%default]"),
 
+make_option(c("-G", "--geom"), type="character", default="pointrange",
+	help="function to aggregate: pointrange | bar [default=%default]"),
+
+make_option(c("-c", "--color"), type="character", default="orange",
+	help="color of the point or bar [default=%default]"),
+
 make_option(c("-f", "--facet_by"), type="integer", 
 	help="column index to facet by"),
 
@@ -66,16 +72,6 @@ make_option(c("-W", "--width"), default=7,
 
 make_option(c("-H", "--height"), default=5,
 	help="height of the plot in inches [default=%default]")
-
-#make_option(c("-m", "--metadata"), 
-#	help="metadata index file"),
-#
-#make_option(c("--merge_mdata_on"), default="labExpId",
-#	help="field to merge the metadata on [default=%default]"),
-#
-#make_option(c("--mean_by"), default="labExpId",
-#	help="metadata field to average by. [default=%default]"),
-#
 
 )
 
@@ -105,14 +101,23 @@ if (!is.null(opt$metadata)) {
 
 df = m
 
-# plot
-theme_set(theme_bw(base_size=opt$base_size))
-
+# Define x and y according to user indeces
 x = colnames(df)[opt$x_index]
 y = colnames(df)[opt$y_index]
 
+# sort by mean
+formula = as.formula(sprintf("%s~%s", y, x))
+lev = aggregate(formula, df, mean, na.rm=T)
+lev = lev[order(lev[,y], decreasing=T),x]
+df[x] = factor(df[,x], levels=lev)
+
+# plot
+theme_set(theme_bw(base_size=opt$base_size))
+
+
 gp = ggplot(df, aes_string(x=x, y=y))
-gp = gp + stat_summary(fun.data=opt$fun, mult=1, shape=15, size=1, color="orange", fill="orange")
+gp = gp + stat_summary(fun.data=opt$fun, mult=1, shape=15, size=1, width=0.4, color=opt$color, geom="errorbar")
+gp = gp + stat_summary(fun.data=opt$fun, mult=1, shape=15, size=1, color=opt$color, fill=opt$color, geom=opt$geom)
 gp = gp + theme(axis.text.x=element_text(angle=45, hjust=1))
 gp = gp + labs(y=opt$y_title, x="")
 
