@@ -34,7 +34,7 @@ print(arguments)
 ##------------ 
 
 cat("Loading libraries... ")
-suppressPackageStartupMessages(library('Vennerable'))
+suppressPackageStartupMessages(library('VennDiagram'))
 cat("DONE\n\n")
 
 
@@ -62,49 +62,40 @@ for (i in seq_along(arg)) {
 }
 
 
-# create a vennerable class
-V = Venn(venn_list)
-cvenn = compute.Venn(V)
 
 # graphical parameters
 #-----------------------
-gp = VennThemes(cvenn)
 
 # change the line colors
 if (is.null(opt$lcol)) {
-	for (i in seq_along(gp$Set)) {
-		gp$Set[[i]]$col <- 'black'
-	}
+	col <- rep('black', length(venn_list))
+	
 }else{
-	for (i in seq_along(strsplit(opt$lcol, ',')[[1]])) { 
-		gp$Set[[i]]$col <- strsplit(opt$lcol, ',')[[1]][i]  
-	}
+	col <- strsplit(opt$lcol, ',')[[1]]  
 }
+
 
 # change the surface colors
 if (!is.null(opt$fcol)) {
-	face_col = strsplit(opt$fcol, ',')[[1]];
-	for (i in seq_along(gp$Face[-1])) {
-		gp$Face[[(i+1)]]$fill <- face_col[i]
-	}
+	face_col = strsplit(opt$fcol, ',')[[1]]
 }
 
 # change the label colors
 if (is.null(opt$Lcol)) {
-	for (i in seq_along(gp$SetText)) {
-		gp$SetText[[i]]$col <- 'black'
-	}
+	label_col = rep('black', length(venn_list))
 }else{
-	for (i in seq_along(strsplit(opt$Lcol, ',')[[1]])) { 
-		gp$SetText[[i]]$col <- strsplit(opt$Lcol, ',')[[1]][i]  
-	}
+	label_col <- strsplit(opt$Lcol, ',')[[1]]  
 }
 
 
+
 # plotting...
-pdf(sprintf("%s.pdf", opt$output))
-plot(cvenn, gpList=gp)
-dev.off()
+venn.diagram(venn_list, 
+	filename=sprintf("%s.tiff", opt$output), 
+	col=col,
+	cat.col=label_col,
+	fill=face_col
+)
 
 # writing the intersection
 write.table(data.frame(merged), file=sprintf("%s.tsv", opt$output), quote=F, row.names=F)
