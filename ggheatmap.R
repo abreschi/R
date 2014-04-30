@@ -57,8 +57,8 @@ make_option(c("--colSide_by"),
 make_option(c("--rowSide_by"), 
 	help="Specify the field(s), you want the row sides coloured by. If empty no color side is added."),
 
-make_option(c("--rowSide_palette"), default="~/R/palettes/cbbPalette.8.txt",
-	help="Palette for rowSide colors [default=%default]"),
+make_option(c("--rowSide_palette"), #default="/users/rg/abreschi/R/palettes/cbbPalette.8.txt",
+	help="Palette for rowSide colors"),
 
 make_option(c("--col_dendro"), action="store_true", default=FALSE, 
 	help="Print the column dendrogram [default=%default]"),
@@ -82,15 +82,18 @@ make_option(c("-W", "--width"), type="integer",
 make_option(c("-H", "--height"), type="integer",
 	help="Choose the heatmap height in inches. Default is proportional to the number of rows"),
 
-make_option(c("--fill_high"), default="blue",
-	help="Top color to fill the matrix. [default=%default]"),
+make_option(c("--matrix_palette"), default="/users/rg/abreschi/R/palettes/terrain.colors.3.txt",
+	help="Palette for the heatmap color grandientn [default=%default]"),
 
-make_option(c("--fill_mid"), default="white",
-	help="Mid color to fill the matrix. [default=%default]"),
-
-make_option(c("--fill_low"), default="red",
-	help="Bottom color to fill the matrix. [default=%default]"),
-
+#make_option(c("--fill_high"), default="blue",
+#	help="Top color to fill the matrix. [default=%default]"),
+#
+#make_option(c("--fill_mid"), default="white",
+#	help="Mid color to fill the matrix. [default=%default]"),
+#
+#make_option(c("--fill_low"), default="red",
+#	help="Bottom color to fill the matrix. [default=%default]"),
+#
 make_option(c("-o", "--output"), default="ggheatmap.out.pdf",
 	help="Output file name, with the extension. [default=%default]"),
 
@@ -150,13 +153,18 @@ theme_update(axis.ticks.length = unit(0.01, "inch"))
 
 # read table
 if (opt$input_matrix == "stdin") {
-	m = read.table(file("stdin"), h=T)} else {
-	m = read.table(opt$input_matrix, h=T)
+	m = read.table(file("stdin"), h=T, sep="\t")} else {
+	m = read.table(opt$input_matrix, h=T, sep="\t")
 }
 
-# read palette file
-rowSide_palette = read.table(opt$rowSide_palette, h=F, comment.char="%")$V1
+# read palette files
+if (!is.null(opt$palette)) {
+	rowSide_palette = as.character(read.table(opt$rowSide_palette, h=F, comment.char="%")$V1)
+	if (opt$verbose) {cat(rowSide_palette, "\n")}
+}
 
+matrix_palette = as.character(read.table(opt$matrix_palette, h=F, comment.char="%")$V1)
+if (opt$verbose) {cat(matrix_palette, "\n")}
 
 #m = m[1:1000,]
 
@@ -334,7 +342,9 @@ p1 = p1 + geom_tile(aes(fill=value))
 p1 = p1 + theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1))
 p1 = p1 + scale_x_discrete(expand=c(0,0), limits=col_limits, labels=col_labels)
 p1 = p1 + scale_y_discrete(limits=row_limits, labels=row_labels)
-p1 = p1 + scale_fill_gradient2(high = opt$fill_high, low=opt$fill_low, mid=opt$fill_mid)
+#p1 = p1 + scale_fill_gradient(high = opt$fill_high, low=opt$fill_low, mid=opt$fill_mid)
+#p1 = p1 + scale_fill_gradient2(high = opt$fill_high, low=opt$fill_low, mid=opt$fill_mid)
+p1 = p1 + scale_fill_gradientn(colours=matrix_palette)
 p1 = p1 + theme(plot.margin=unit(c(0.00, 0.00, 0.01, 0.01),"inch"))
 p1 = p1 + labs(x=NULL, y=NULL)
 p1 = p1 + guides(fill=guide_colourbar(title.position="top", direction="horizontal", title.hjust=0))
@@ -374,8 +384,11 @@ if (!is.null(opt$rowSide_by)) {
 		RowSide = RowSide + geom_tile(aes_string(fill=rowSide), color="black")
 		RowSide = RowSide + scale_x_discrete(limits = row_limits, labels=NULL, expand=c(0,0))
 		RowSide = RowSide + scale_y_discrete(labels=NULL, expand=c(0,0))
-#		RowSide = RowSide + scale_fill_manual(values=cbbPalette)
-		RowSide = RowSide + scale_fill_manual(values=rowSide_palette)
+		if (!is.null(opt$rowSide_palette)) {
+			RowSide = RowSide + scale_fill_manual(values=rowSide_palette)
+		} else {
+			RowSide = RowSide + scale_fill_hue()
+		}
 		RowSide = RowSide + theme(plot.margin=unit(c(0.00, 0.00, 0.00, 0.01),"inch"))
 		RowSide = RowSide + labs(x=NULL, y=NULL)
 		RowSide = RowSide + coord_flip()
