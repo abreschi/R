@@ -22,19 +22,34 @@ option_list <- list(
 make_option(c("-i", "--input_matrix"), default="stdin", 
 	help="the matrix you want to analyze. \"stdin\" for reading from standard input [default=%default]"),
 
-make_option(c("-l", "--log10"), action="store_true", default=FALSE, help="apply the log [default=FALSE]"),
-make_option(c("-p", "--pseudocount"), type="double", help="specify a pseudocount for the log [default=%default]", default=1e-04),
-make_option(c("-m", "--metadata"), help="tsv file with the metadata"),
-make_option(c("-s", "--scale_by"), help="choose one or multiple attributes you want to scale by"),
-make_option(c("-r", "--row_first"), action="store_true", help="scale first by rows then by columns", default=FALSE),
-make_option(c("-C", "--center"), action="store_true", help="subtract the mean [default=%default]", default=FALSE),
-make_option(c("-S", "--scale"), action="store_true", help="divide by the standard deviation [default=%default]", default=FALSE),
-make_option(c("-n", "--n_iter"), type='integer', help="how many times to iterate. Choose 0 for one-dimension scaling [default=%default]", default=20),
+make_option(c("-l", "--log10"), action="store_true", default=FALSE, 
+	help="apply the log before scaling [default=FALSE]"),
+
+make_option(c("-p", "--pseudocount"), type="double", default=1e-04,
+	help="specify a pseudocount for the log [default=%default]"),
+
+make_option(c("-r", "--row_first"), action="store_true", default=FALSE,
+	help="scale first by rows then by columns"),
+
+make_option(c("-C", "--center"), action="store_true", default=FALSE, 
+	help="subtract the mean [default=%default]"),
+
+make_option(c("-S", "--scale"), action="store_true", default=FALSE,
+	help="divide by the standard deviation [default=%default]"),
+
+make_option(c("-n", "--n_iter"), type='integer', default=20,
+	help="how many times to iterate. Choose 0 for one-dimension scaling [default=%default]"),
+
+make_option(c("-m", "--metadata"), 
+	help="tsv file with the metadata"),
+
+make_option(c("-s", "--scale_by"), 
+	help="choose one or multiple attributes you want to scale by"),
 
 make_option(c("-o", "--output"), default="stdout", 
 	help="output file name. \"stdout\" to redirect to stdout. [default=%default]"),
 
-make_option(c("--verbose"), action="store_true", default=FALSE,
+make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
 	help="verbose output. [default=%default]")
 )
 
@@ -61,25 +76,17 @@ if (opt$verbose) {sprintf("WARNING: column %s is character, so it is removed fro
 if (length(char_cols) == 0) {genes = rownames(m)}
 if (length(char_cols) != 0) {genes = m[,char_cols]; m = m[,-(char_cols)]}
 
-# Check the scale attribute
-#if (opt$center_only) {scale_attr = FALSE}
 
 # apply the log if required
 if (opt$log10) { m = log10(replace(m, is.na(m), 0) + opt$pseudocount) }
 
-
 # Read the metadata
 if (!is.null(opt$metadata)) {
-mdata <- read.table(opt$metadata, h=T, row.names=NULL, sep="\t")
-mdata$labExpId <- sapply(mdata$labExpId, function(x) gsub(",", ".", x))
-mdata = subset(mdata, labExpId %in% colnames(m))
+	mdata <- read.table(opt$metadata, h=T, row.names=NULL, sep="\t")
+	mdata$labExpId <- sapply(mdata$labExpId, function(x) gsub(",", ".", x))
+	mdata = subset(mdata, labExpId %in% colnames(m))
 }
 
-
-
-
-# store the plot of the distribution with input matrix
-#gp1 = ggplot(melt(m), aes(x=value)) + geom_density() + facet_wrap(~variable)
 
 
 
@@ -123,24 +130,43 @@ new_m = m
 
 # scale the whole matrix if no value is provided
 if (is.null(opt$scale_by)) {
-new_m = equil(new_m)
+	new_m = equil(new_m)
 }
 
 # scale the sub-matrices defined the scale_by option
 if (!is.null(opt$scale_by)) {
-scale_by <- strsplit(opt$scale_by, ",")[[1]]
-if (length(scale_by) != 1){
-ids = apply(data.frame(unique(mdata[, scale_by])), 1, function(x) unique(merge(t(as.data.frame(x)), mdata, by=scale_by)$labExpId ))}
-if (length(scale_by) == 1){
-ids = sapply(unique(mdata[, scale_by]), function(x) unique(mdata[ mdata[,scale_by] == x,]$labExpId))}
-# apply normalization
-if (length(scale_by) != 1){for (i in 1:length(ids)) { new_m[, ids[[i]]] <- equil(new_m[,ids[[i]]])}  }
-if (length(scale_by) == 1){for (i in 1:ncol(ids)) { new_m[, ids[[i]]] <- equil(new_m[,ids[[i]]])}  }
+	
+	# Select the metadata columns of interset
+	scale_by <- strsplit(opt$scale_by, ",")[[1]];
+	if (opt$verbose) {cat("Select metadata...  ")}
+	mdata = unique(mdata[,unique(c("labExpId", scale_by))])
+	if (opt$verbose) {cat(dim(mdata), "\n")}
+
+	# Get the levels by which scale
+	lev = levels(interaction(mdata[,scale_by]))
+	if (opt$verbose) {print(lev)}
+
+	# Add a column to the metadata with the interaction
+	mdata$interaction = apply(mdata[scale_by], 1, paste, collapse=".")
+	
+	for (i in 1:length(lev)) {
+		ids = mdata[lev[i] == mdata$interaction, "labExpId"]
+		subm = m[,ids]
+		equilm = equil(subm)
+		new_m[,ids] = equilm
+	}
+	
+##	if (length(scale_by) != 1){
+#		ids = apply(mdata, 1, function(x) unique(merge(t(as.data.frame(x)), mdata, by=scale_by)$labExpId ))}
+#	if (length(scale_by) == 1){
+#	ids = sapply(unique(mdata[, scale_by]), function(x) unique(mdata[ mdata[,scale_by] == x,]$labExpId))}
+#
+## apply normalization
+#	if (length(scale_by) != 1){for (i in 1:length(ids)) { new_m[, ids[[i]]] <- equil(new_m[,ids[[i]]])}  }
+#	if (length(scale_by) == 1){for (i in 1:ncol(ids)) { new_m[, ids[[i]]] <- equil(new_m[,ids[[i]]])}  }
 }
 
 
-#if (is.null(opt$scale_by)) {gp2 = ggplot(melt(new_m), aes(x=value)) + geom_density() + facet_wrap(~Var2)}else{
-#gp2 = ggplot(melt(new_m), aes(x=value)) + geom_density() + facet_wrap(~variable)}
 
 print_rownames = TRUE
 if (length(char_cols) != 0) {new_m <- cbind(genes, new_m); print_rownames=FALSE}
@@ -148,9 +174,6 @@ if (length(char_cols) != 0) {new_m <- cbind(genes, new_m); print_rownames=FALSE}
 
 # print output
 #--------------
-#output = sprintf('equil.log_%s.pscnt_%s.rowFirst_%s', opt$log10, opt$pseudocount, opt$row_first)
-#write.table(new_m, sprintf('%s.tsv',output), quote=F, sep='\t', row.names=F)
-#pdf(sprintf("%s.pdf", output)); gp1; gp2; dev.off()
 
 if (opt$output == "stdout") {
 	output = ""
@@ -160,6 +183,9 @@ if (opt$output == "stdout") {
 
 
 write.table(new_m, output, quote=F, sep="\t", row.names=print_rownames)
+
+
+# EXIT
 
 q(save='no')
 
