@@ -76,11 +76,7 @@ if (opt$input == "stdin") {
 db = read.table(opt$db, h=T, sep="\t", quote="")
 
 formula = as.formula(paste(colnames(db)[2],"~",colnames(db)[1]))
-print(formula)
 db_counts = setNames(aggregate(formula, db, length), c("feature", "total"))
-print(dim(db_counts))
-print(head(m))
-print(length(intersection(db[,2], m[,1]))
 list_db = db[db[,2] %in% m[,1], ]
 list_counts = setNames(aggregate(formula, list_db, length), c("feature", "counts"))
 
