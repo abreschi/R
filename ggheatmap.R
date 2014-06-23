@@ -85,15 +85,6 @@ make_option(c("-H", "--height"), type="integer",
 make_option(c("--matrix_palette"), default="/users/rg/abreschi/R/palettes/terrain.colors.3.txt",
 	help="Palette for the heatmap color grandientn [default=%default]"),
 
-#make_option(c("--fill_high"), default="blue",
-#	help="Top color to fill the matrix. [default=%default]"),
-#
-#make_option(c("--fill_mid"), default="white",
-#	help="Mid color to fill the matrix. [default=%default]"),
-#
-#make_option(c("--fill_low"), default="red",
-#	help="Bottom color to fill the matrix. [default=%default]"),
-#
 make_option(c("-o", "--output"), default="ggheatmap.out.pdf",
 	help="Output file name, with the extension. [default=%default]"),
 
@@ -153,18 +144,23 @@ theme_update(axis.ticks.length = unit(0.01, "inch"))
 
 # read table
 if (opt$input_matrix == "stdin") {
-	m = read.table(file("stdin"), h=T, sep="\t")} else {
+	m = read.table(file("stdin"), h=T, sep="\t")
+} else {
 	m = read.table(opt$input_matrix, h=T, sep="\t")
 }
 
+# Make valid row and column names
+rownames(m) <- make.names(rownames(m))
+colnames(m) <- make.names(colnames(m))
+
 # read palette files
-if (!is.null(opt$palette)) {
+if (!is.null(opt$rowSide_palette)) {
 	rowSide_palette = as.character(read.table(opt$rowSide_palette, h=F, comment.char="%")$V1)
-	if (opt$verbose) {cat(rowSide_palette, "\n")}
+	if (opt$verbose) {cat("RowSide Palette:", rowSide_palette, "\n")}
 }
 
 matrix_palette = as.character(read.table(opt$matrix_palette, h=F, comment.char="%")$V1)
-if (opt$verbose) {cat(matrix_palette, "\n")}
+if (opt$verbose) {cat("Matrix Palette:", matrix_palette, "\n")}
 
 #m = m[1:1000,]
 
@@ -183,13 +179,25 @@ if (opt$log) {m <- log10(replace(m, is.na(m), 0) + opt$pseudocount)}
 # melt the data frame
 df = melt(as.matrix(m))
 
+if (opt$verbose) {
+	cat("Melt dataframe:\n")
+	print(head(df))
+}
 
 
 # --------------- Metadata processing -------------
 
-# read metadata
-if (!is.null(opt$col_metadata)) {col_mdata = read.table(opt$col_metadata, h=T, sep="\t", quote="\"")}
-if (!is.null(opt$row_metadata)) {row_mdata = read.table(opt$row_metadata, h=T, sep="\t", quote="\"")}
+# read metadata and correct the merging fields
+if (!is.null(opt$col_metadata)) {
+	col_mdata = read.table(opt$col_metadata, h=T, sep="\t", quote="\"")
+	col_mdata[opt$merge_col_mdata_on] <- make.names(col_mdata[,opt$merge_col_mdata_on])
+}
+
+if (!is.null(opt$row_metadata)) {
+	row_mdata = read.table(opt$row_metadata, h=T, sep="\t", quote="\"")
+	row_mdata[opt$merge_row_mdata_on] <- make.names(row_mdata[,opt$merge_row_mdata_on])
+
+}
 
 # read which fields are needed from the metadata
 if (!is.null(opt$colSide_by)) {colSide_by = strsplit(opt$colSide_by, ",")[[1]]} else {colSide_by = NULL}
@@ -202,22 +210,42 @@ row_mdata_header = unique(c(opt$merge_row_mdata_on, rowSide_by, row_label_fields
 row_mdata_header = c(opt$merge_row_mdata_on, setdiff(row_mdata_header, intersect(col_mdata_header, row_mdata_header)))
 
 
-# merge metadata and data (NB: The column Var2 stays)
-if (!is.null(opt$col_metadata)) {
-	col_mdata[opt$merge_col_mdata_on] <- gsub(",", ".", col_mdata[,opt$merge_col_mdata_on])
-	df = merge(df, unique(col_mdata[col_mdata_header]), by.x="Var2", by.y=opt$merge_col_mdata_on)
-}
-
-if (!is.null(opt$row_metadata)) {
-	row_mdata[opt$merge_row_mdata_on] <- gsub(",", ".", row_mdata[,opt$merge_row_mdata_on])
-	df = merge(df, unique(row_mdata[row_mdata_header]), by.x="Var1", by.y=opt$merge_row_mdata_on)
-	print(dim(row_mdata))
-	if (length(rownames(m)) != length(intersect(rownames(m), row_mdata[,opt$merge_row_mdata_on]))) {
-		cat("ERROR: Not all row names are matched in the row metadata!\n")
-		cat("ABORTED\n")
-		q(save="no")
+same_mdata = FALSE
+# Handle the fact that column metadata and row metadata may be the same file and they may be merged on the field
+if (!is.null(opt$row_metadata) & !is.null(opt$col_metadata)) {
+	if (opt$row_metadata == opt$col_metadata & opt$merge_row_mdata_on == opt$merge_col_mdata_on) {
+		same_mdata = TRUE
 	}
 }
+
+# Both metadata available
+if (same_mdata) {
+	# Handle the fact that column metadata and row metadata may be the same file and they may be merged on the field
+	mdata_header = union(c(opt$merge_col_mdata_on, colSide_by, col_label_fields),
+	c(opt$merge_row_mdata_on, rowSide_by, row_label_fields))
+#	col_mdata[opt$merge_col_mdata_on] <- gsub(",", ".", col_mdata[,opt$merge_col_mdata_on])
+	df = merge(df, unique(col_mdata[mdata_header]), by.x="Var2", by.y=opt$merge_col_mdata_on)
+}else {
+
+	# merge metadata and data (NB: The column Var2 stays)
+	if (!is.null(opt$col_metadata)) {
+#		col_mdata[opt$merge_col_mdata_on] <- gsub(",", ".", col_mdata[,opt$merge_col_mdata_on])
+		df = merge(df, unique(col_mdata[col_mdata_header]), by.x="Var2", by.y=opt$merge_col_mdata_on)
+	}
+	
+	if (!is.null(opt$row_metadata)) {
+#		row_mdata[opt$merge_row_mdata_on] <- gsub(",", ".", row_mdata[,opt$merge_row_mdata_on])
+		df = merge(df, unique(row_mdata[row_mdata_header]), by.x="Var1", by.y=opt$merge_row_mdata_on)
+		print(dim(row_mdata))
+		if (length(rownames(m)) != length(intersect(rownames(m), row_mdata[,opt$merge_row_mdata_on]))) {
+			cat("ERROR: Not all row names are matched in the row metadata!\n ABORTED\n")
+			q(save="no")
+		}
+	}
+}
+
+
+
 
 if (opt$verbose) {cat("merged metadata\n")}
 
@@ -282,8 +310,6 @@ if (is.null(opt$col_labels)) {
 		col_labels = NULL
 	} else {
 		col_label_fields[which(col_label_fields == opt$merge_col_mdata_on)] <- "Var2"
-		print(col_label_fields)
-		print(colnames(df))
 		col_labels = apply(df[col_label_fields], 1, paste, collapse=";")
 		col_labels <- col_labels[with(df, match(colnames(m), Var2))]
 	}
@@ -299,9 +325,16 @@ if (is.null(opt$row_labels)) {
 	if (opt$row_labels == "none") {
 		row_labels = NULL
 	} else {
-		row_label_fields[which(row_label_fields == opt$merge_row_mdata_on)] <- "Var1"
-		row_labels = apply(df[row_label_fields], 1, paste, collapse=";")
-		row_labels <- row_labels[with(df, match(rownames(m), Var1))]
+		# Handle the fact that column metadata and row metadata may be the same file and they may be merged on the field
+		if (same_mdata) {
+			row_label_fields[which(row_label_fields == opt$merge_row_mdata_on)] <- "Var2"
+			row_labels = apply(df[row_label_fields], 1, paste, collapse=";")
+			row_labels <- row_labels[with(df, match(rownames(m), Var2))]
+		} else {
+			row_label_fields[which(row_label_fields == opt$merge_row_mdata_on)] <- "Var1"
+			row_labels = apply(df[row_label_fields], 1, paste, collapse=";")
+			row_labels <- row_labels[with(df, match(rownames(m), Var1))]
+		}
 	}
 }
 if (opt$verbose) {cat("DONE\n")}
@@ -342,8 +375,6 @@ p1 = p1 + geom_tile(aes(fill=value))
 p1 = p1 + theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1))
 p1 = p1 + scale_x_discrete(expand=c(0,0), limits=col_limits, labels=col_labels)
 p1 = p1 + scale_y_discrete(limits=row_limits, labels=row_labels)
-#p1 = p1 + scale_fill_gradient(high = opt$fill_high, low=opt$fill_low, mid=opt$fill_mid)
-#p1 = p1 + scale_fill_gradient2(high = opt$fill_high, low=opt$fill_low, mid=opt$fill_mid)
 p1 = p1 + scale_fill_gradientn(colours=matrix_palette)
 p1 = p1 + theme(plot.margin=unit(c(0.00, 0.00, 0.01, 0.01),"inch"))
 p1 = p1 + labs(x=NULL, y=NULL)
@@ -373,15 +404,22 @@ if (!is.null(opt$colSide_by)) {
 }
 
 
+
 # ----------------------- Row Side Colors ------------
 
 RowSides = list(); RowSide_legends = list()
 if (!is.null(opt$rowSide_by)) {
 	i=1;
 	for (rowSide in rowSide_by) {
-		rowSide_data = unique(df[c("Var1", rowSide)])
-		RowSide = ggplot(rowSide_data, aes(x=Var1, y="a"))
-		RowSide = RowSide + geom_tile(aes_string(fill=rowSide), color="black")
+		# Handle the fact that column metadata and row metadata may be the same file and they may be merged on the field
+		if (same_mdata) {
+			rowSide_data = unique(df[c("Var2", rowSide)])
+			RowSide = ggplot(rowSide_data, aes(x=Var2, y="a"))
+		} else {
+			rowSide_data = unique(df[c("Var1", rowSide)])
+			RowSide = ggplot(rowSide_data, aes(x=Var1, y="a"))
+		}
+		RowSide = RowSide + geom_tile(aes_string(fill=rowSide))
 		RowSide = RowSide + scale_x_discrete(limits = row_limits, labels=NULL, expand=c(0,0))
 		RowSide = RowSide + scale_y_discrete(labels=NULL, expand=c(0,0))
 		if (!is.null(opt$rowSide_palette)) {
@@ -397,7 +435,6 @@ if (!is.null(opt$rowSide_by)) {
 		RowSides[[i]] = RowSide; i=i+1;
 	}
 } 
-
 
 
 
