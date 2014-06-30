@@ -54,6 +54,9 @@ make_option(c("--row_labels"),
 make_option(c("--colSide_by"), 
 	help="Specify the field(s), you want the column sides coloured by. If empty no color side is added."),
 
+make_option(c("--colSide_palette"), #default="/users/rg/abreschi/R/palettes/cbbPalette.8.txt",
+	help="Palette for colSide colors"),
+
 make_option(c("--rowSide_by"), 
 	help="Specify the field(s), you want the row sides coloured by. If empty no color side is added."),
 
@@ -153,10 +156,16 @@ if (opt$input_matrix == "stdin") {
 rownames(m) <- make.names(rownames(m))
 colnames(m) <- make.names(colnames(m))
 
-# read palette files
+# --- read PALETTE files ----
+
 if (!is.null(opt$rowSide_palette)) {
 	rowSide_palette = as.character(read.table(opt$rowSide_palette, h=F, comment.char="%")$V1)
 	if (opt$verbose) {cat("RowSide Palette:", rowSide_palette, "\n")}
+}
+
+if (!is.null(opt$colSide_palette)) {
+	colSide_palette = as.character(read.table(opt$colSide_palette, h=F, comment.char="%")$V1)
+	if (opt$verbose) {cat("ColSide Palette:", colSide_palette, "\n")}
 }
 
 matrix_palette = as.character(read.table(opt$matrix_palette, h=F, comment.char="%")$V1)
@@ -395,6 +404,11 @@ if (!is.null(opt$colSide_by)) {
 		ColSide = ColSide + geom_tile(aes_string(fill=colSide), color="black")
 		ColSide = ColSide + scale_x_discrete(limits = col_limits, labels=NULL, expand=c(0,0))
 		ColSide = ColSide + scale_y_discrete(labels=NULL, expand=c(0,0))
+		if (!is.null(opt$colSide_palette)) {
+			ColSide = ColSide + scale_fill_manual(values=colSide_palette)
+		} else {
+			ColSide = ColSide + scale_fill_hue()
+		}
 		ColSide = ColSide + theme(plot.margin=unit(c(0.00, 0.00, 0.00, 0.01),"inch"))
 		ColSide = ColSide + labs(x=NULL, y=NULL)
 		ColSide_legends[[i]] = g_legend(ColSide)
