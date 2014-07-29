@@ -15,12 +15,11 @@ suppressPackageStartupMessages(library("ggplot2"))
 suppressPackageStartupMessages(library("optparse"))
 
 options(stringsAsFactors=F)
-#cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#8470FF", "#F0E442", "#0072B2", "#D55E00", "#CC79A7") 
-custom_palette <- rgb(matrix(c(0,0,0,0,73,73,0,146,146,255,109,182,255,182,119,73,0,146,0,109,219,182,109,
-255,109,182,255,182,219,255,146,0,0,146,73,0,219,209,0,36,255,36,255,255,109), ncol=3, byrow=T), max=255)
-cbbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#000000", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+#custom_palette <- rgb(matrix(c(0,0,0,0,73,73,0,146,146,255,109,182,255,182,119,73,0,146,0,109,219,182,109,
+#255,109,182,255,182,219,255,146,0,0,146,73,0,219,209,0,36,255,36,255,255,109), ncol=3, byrow=T), max=255)
+#cbbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#000000", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-my_palette <- custom_palette
+#my_palette <- custom_palette
 
 ##################
 # OPTION PARSING
@@ -33,7 +32,12 @@ make_option(c("-p", "--pseudocount"), type="double", help="specify a pseudocount
 make_option(c("-m", "--metadata"), help="A list of tsv files with metadata on matrix experiment.\n\t\tThey must be in the format 'file1.tsv,file2.tsv' and contain a key column named 'labExpId'. Can be omitted"),
 #make_option(c("-o", "--output"), help="additional info you want to put in the output file name", default="out"),
 make_option(c("-c", "--color_by"), help="choose the fields in the metadata you want to color by", type='character'),
+
 make_option(c("-s", "--shape_by"), help="choose the fields in the metadata you want to shape by", type='character', default=NA),
+
+make_option(c("--no_legend"), action="store_true", default=FALSE,
+	help="Do not show the legend [default=%default]"),
+
 make_option(c("-r", "--row_as_variables"), action="store_true", help="select this if you want rows as variables [default=%default]", default=FALSE),
 make_option(c("-C", "--princomp"), help="choose the principal components you want to plot. With 3 PC it gives a 3d plot [default='PC1,PC2']", default="PC1,PC2"),
 
@@ -46,8 +50,20 @@ make_option(c("--print_loadings"), action="store_true", default=FALSE,
 make_option(c("--print_lambdas"), action="store_true", default=FALSE,
 	help="Output the resulting lambdas (stdev) as a separate file with the extension lambdas.tsv [default=%default]"),
 
-make_option(c("-o", "--output"), help="output file name", default="pca.out.pdf"),
-make_option(c("-v", "--verbose"), help="verbose output [default=%default]", default=FALSE)
+make_option(c("--palette"), default="/users/rg/abreschi/R/palettes/cbbPalette1.15.txt",
+	help="File with the color palette [default=%default]"),
+
+make_option(c("-H", "--height"), default=7,
+	help="Height of the plot in inches [default=%default]"),
+
+make_option(c("-W", "--width"), default=7,
+	help="Width of the plot in inches [default=%default]"),
+
+make_option(c("-o", "--output"), default="pca.out",
+	help="output file name"),
+
+make_option(c("-v", "--verbose"), action='store_true', default=FALSE,
+	help="verbose output [default=%default]")
 )
 
 parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
@@ -68,6 +84,8 @@ if (opt$input_matrix == "stdin") {
 	m = read.table(opt$input_matrix, h=T)
 }
 
+# Read the color palette
+my_palette = read.table(opt$palette, h=F, comment.char="%")$V1
 
 # remove potential gene id columns
 char_cols <- which(sapply(m, class) == 'character')
@@ -90,7 +108,7 @@ if (opt$verbose) {print(dim(na.omit(m)))}
 # HANDLING METADATA
 
 # add metadata to pca results, they should be input in the command line in the future
-if (is.na(opt$color_by)) {color_by=NULL
+if (is.null(opt$color_by)) {color_by=NULL
 }else{color_by = color_by = strsplit(opt$color_by, ",")[[1]]}
 if (is.na(opt$shape_by)) {shape_by=NULL
 }else{shape_by = strsplit(opt$shape_by, ",")[[1]]}
@@ -119,8 +137,6 @@ if (!is.null(opt$metadata)){
 }
 
 
-
-#dfl = as.data.frame(m_pca$rotation)
 
 
 #########
@@ -160,17 +176,19 @@ variances = round(m_pca$sdev^2/sum(m_pca$sdev^2)*100, 2)
 
 # plot parameters
 pts = 5
-shapes = c(16, 15, 0, 14:1, 18, 17)
-theme_set(theme_bw())
+#shapes = c(16, 15, 0, 14:1, 18, 17)
+shapes = c(15, 0)
+theme_set(theme_bw(base_size=16))
+theme_update(legend.key = element_blank())
 
 
 # Open device for plotting
-pdf(sprintf("%s.pdf", output_name), w=8, h=7)
+pdf(sprintf("%s.pdf", output_name), w=opt$width, h=opt$height)
 
 if (length(prinComp) == 2){
 	# plotting...
 	gp = ggplot(df, aes_string(x=prinComp[1],y=prinComp[2]));
-	if (!is.na(opt$color_by)) {gp_color_by=interaction(df[color_by])} else {gp_color_by=NULL}
+	if (!is.null(opt$color_by)) {gp_color_by=interaction(df[color_by])} else {gp_color_by=NULL}
 	if (!is.na(opt$shape_by)) {gp_shape_by=interaction(df[shape_by]);
 	gp_shape_by <- factor(gp_shape_by, levels=sort(levels(gp_shape_by)))} else {gp_shape_by=NULL}
 	gp = gp + geom_point(aes(col=gp_color_by, shape=gp_shape_by), size=pts);
@@ -179,6 +197,9 @@ if (length(prinComp) == 2){
 	gp = gp + labs(y=sprintf('%s (%s%%)', prinComp[2], variances[prinComp_i[2]]));
 	gp = gp + scale_color_manual(name=opt$color_by, values=my_palette)
 	gp = gp + scale_shape_manual(name='Sample', values=shapes);
+	if (opt$no_legend) {
+		gp = gp + guides(shape=FALSE, color=FALSE)
+	}
 	gp
 } 
 
@@ -191,6 +212,25 @@ if (length(prinComp) == 2){
 #
 # --------------------
 
+#print(head(df))
+
+#if (length(prinComp) == 3) {
+#
+#	suppressPackageStartupMessages(library(ggtern))
+#
+#	gp = ggtern(df, aes_string(x=prinComp[1], y=prinComp[2], z=prinComp[3]));
+#	gp = gp + geom_point()
+##	if (!is.na(opt$color_by)) {gp_color_by=interaction(df[color_by])} else {gp_color_by=NULL}
+##	if (!is.na(opt$shape_by)) {gp_shape_by=interaction(df[shape_by]);
+##	gp_shape_by <- factor(gp_shape_by, levels=sort(levels(gp_shape_by)))} else {gp_shape_by=NULL}
+##	gp = gp + geom_point(aes(col=gp_color_by, shape=gp_shape_by), size=pts);
+##	gp = gp + labs(title="");
+##	gp = gp + labs(x=sprintf('%s (%s%%)', prinComp[1], variances[prinComp_i[1]]));
+##	gp = gp + labs(y=sprintf('%s (%s%%)', prinComp[2], variances[prinComp_i[2]]));
+##	gp = gp + scale_color_manual(name=opt$color_by, values=my_palette)
+##	gp = gp + scale_shape_manual(name='Sample', values=shapes);
+#	gp
+##}
 
 if (length(prinComp) == 3) {
 
@@ -198,11 +238,8 @@ suppressPackageStartupMessages(library(scatterplot3d))
 
 par(xpd=NA, omi=c(0.5, 0.5, 0.5, 1.0))
 
-
 if (!is.na(opt$color_by)) {gp_color=my_palette[interaction(df[color_by])]} else {gp_color="black"}
-
 if (!is.na(opt$shape_by)) {gp_shape_by=interaction(df[shape_by]);
-
 gp_shape_by <- factor(gp_shape_by, levels=sort(intersect(levels(gp_shape_by), gp_shape_by))); gp_shape=shapes[gp_shape_by]} else {gp_shape_by=NULL}
 
 plot3d = scatterplot3d(df[prinComp], 
@@ -219,7 +256,6 @@ plot3d = scatterplot3d(df[prinComp],
 #i=0; for(sample in interaction(df[color_by])) {
 #i=i+1; plot3d$points3d(subset(df, General_category == sample, select=prinComp), type='l', col=gp_color[i])}
 
-
 if (!is.na(opt$color_by)) {
 	legend(
 		x = log(max(df[prinComp[1]])) + 3,
@@ -229,8 +265,6 @@ if (!is.na(opt$color_by)) {
 		fill = my_palette[seq_along(levels(interaction(df[color_by])))]
 	)
 }
-
-
 
 if (!is.na(opt$shape_by)) {
 	legend(
