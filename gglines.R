@@ -27,7 +27,7 @@ make_option(c("-y", "--y_col"), type='numeric', default=2,
 
 #make_option(c("-L", "--labels"), help="list of labels with the labels of each file, commma-separated.\n
 #They must be in the same order as the file list", type="character"),
-make_option(c("-v", "--vertical_lines"), type='character',
+make_option(c("-V", "--vertical_lines"), type='character',
 	help="specify where you want the vertical lines [default=%default]"),
 
 #make_option(c("-f", "--facet"), type="integer", help="column index to facet"),
