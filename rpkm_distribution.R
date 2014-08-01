@@ -1,28 +1,17 @@
 #!/usr/bin/env Rscript
 
-##------------
-## LIBRARIES
-##------------ 
-
-cat("Loading libraries... ")
-suppressPackageStartupMessages(library(reshape2))
-suppressPackageStartupMessages(library(ggplot2))
-suppressPackageStartupMessages(library("optparse"))
-suppressPackageStartupMessages(library(plyr))
-cat("DONE\n\n")
-
 options(stringsAsFactors=F)
-cbbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#000000", "#F0E442", "#0072B2", "#D55E00", "#CC79A7") 
 
 ##################
 # OPTION PARSING
 ##################
 
+suppressPackageStartupMessages(library("optparse"))
 
 option_list <- list(
 
 make_option(c("-i", "--input_matrix"), 
-	help="the matrix you want to analyze"),
+	help="the matrix you want to analyze. Can be stdin"),
 
 make_option(c("-l", "--log"), action="store_true", default=FALSE, 
 	help="apply the log10 [default=%default]"),
@@ -73,14 +62,32 @@ arguments <- parse_args(parser, positional_arguments = TRUE)
 opt <- arguments$options
 if (opt$verbose) {print(opt)}
 
+
+
+##------------
+## LIBRARIES
+##------------ 
+
+
+if (opt$verbose) {cat("Loading libraries... ")}
+suppressPackageStartupMessages(library(reshape2))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(plyr))
+if (opt$verbose) {cat("DONE\n\n")}
+
 ##--------------------##
 ## CLUSTERING SAMPLES ##
 ##--------------------##
 
 # read the matrix from the command line
-m = read.table(opt$input_matrix, h=T)
+if (opt$input_matrix == "stdin") {
+	m = read.table(file("stdin"), h=T)
+} else {
+	m = read.table(opt$input_matrix, h=T)
+}
+
 ylab = opt$x_title
-palette = read.table(opt$palette, h=F, comment.char="%")$V1
+cbbPalette = read.table(opt$palette, h=F, comment.char="%")$V1
 
 # remove potential gene id columns
 char_cols <- which(sapply(m, class) == 'character')
