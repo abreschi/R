@@ -21,6 +21,12 @@ make_option(c("-o", "--output"), default="gghist.out.pdf",
 make_option(c("--header"), action="store_true", default=FALSE,
 	help="Use this if the input has a header [default=%default]"),
 
+make_option(c("--scale_x_log10"), action="store_true", default=FALSE,
+	help="log10-transform x scale [default=%default]"),
+
+make_option(c("--scale_y_log10"), action="store_true", default=FALSE,
+	help="log10-transform y scale [default=%default]"),
+
 make_option(c("--y_title"), type="character", default="count",
 	help="Title for the y axis [default=%default]"),
 
@@ -36,12 +42,22 @@ make_option(c("-f", "--fill"), default="aquamarine",
 make_option(c("-c", "--color"), default="grey",
 	help="choose the color which you want to contour the histogram with"),
 
+make_option(c("-F", "--fill_by"), type='numeric',
+	help="the column index with the factor to fill by. Leave empty for no factor."),
+
+make_option(c("-W", "--width"), default=7,
+	help="width of the plot in inches. [default=%default]"),
+
 make_option(c("-b", "--binwidth"), type="double", 
 	help="Specify binwidth. Leave empty for default")
 
 )
 
-parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
+parser <- OptionParser(
+	usage = "%prog [options] file", 
+	option_list=option_list,
+	description = "Reads the values on the first column and outputs a histogram"
+)
 arguments <- parse_args(parser, positional_arguments = TRUE)
 opt <- arguments$options
 if (opt$verbose) {print(opt)}
@@ -73,8 +89,9 @@ if (opt$input == "stdin") {
 df = m
 
 
-avg = mean(df[,1], na.rm=TRUE)
-med = median(df[,1], na.rm=TRUE)
+if (!is.null(opt$fill_by)) {
+	fill_by = colnames(df)[opt$fill_by]
+}
 
 
 # GGPLOT
@@ -87,11 +104,33 @@ if (is.null(opt$binwidth)) {
 } else {
 	gp = gp + geom_histogram(fill=opt$fill, color=opt$color, right=TRUE, include.lowest=TRUE, binwidth=opt$binwidth)
 }
-gp = gp + geom_point(aes(x=avg, y=0), size=2)
-gp = gp + geom_vline(xintercept=med, linetype=2)
+
+if (!is.null(opt$fill_by)) {
+	gp = gp + geom_histogram(aes_string(fill=fill_by))
+}
+
+gp = gp + theme(axis.text.x=element_text(angle=45, hjust=1))
+
+if (!is.character(df[,1])) {
+	avg = mean(df[,1], na.rm=TRUE)
+	med = median(df[,1], na.rm=TRUE)
+	gp = gp + geom_point(aes(x=avg, y=0), size=2)
+	gp = gp + geom_vline(xintercept=med, linetype=2)
+	gp = gp + theme(axis.text.x=element_text(angle=0, hjust=0.5))
+}
+
+
+if (opt$scale_x_log10) {
+	gp = gp + scale_x_log10()
+}
+
+if (opt$scale_y_log10) {
+	gp = gp + scale_y_log10()
+}
+
 gp = gp + labs(y=opt$y_title, x=opt$x_title)
 
-ggsave(opt$output, h=5, w=5)
+ggsave(opt$output, h=5, w=opt$width)
 
 # EXIT
 quit(save='no')
