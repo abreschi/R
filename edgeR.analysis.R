@@ -91,8 +91,8 @@ mglmAverage = function(object, lev,  prior.count = 0.125, dispersion = 'auto') {
 ## Differential Expression ##
 ##-------------------------##
 
-plotMA = function(x, fdr) {plot(sort(x$logCPM), x$logFC[order(x$logCPM)]);
-points(subset(x, FDR<fdr)[c("logCPM","logFC")], col='red')}
+#plotMA = function(x, fdr) {plot(sort(x$logCPM), x$logFC[order(x$logCPM)]);
+#points(subset(x, FDR<fdr)[c("logCPM","logFC")], col='red')}
 
 
 # read the matrix from the command line
@@ -157,7 +157,8 @@ res = topTags(et, n=nrow(et))$table
 # Add the estimated averages for each level (the function is a subset of exactTest)
 for(lev in levels(condition)) {
 #	avg = mglmAverage(M, lev)
-	res[lev] = round(mglmAverage(M, lev)[rownames(res)], digits=2)
+#	res[lev] = round(mglmAverage(M, lev)[rownames(res)], digits=2)
+	res = cbind(lev=round(mglmAverage(M, lev)[rownames(res)], digits=2), res)
 }
 
 # MULTIPLE CONDITIONS
@@ -210,8 +211,20 @@ write.table(res, file=sprintf("%s.tsv", output), quote=F, sep='\t',row.names=T)
 #------#
 
 pdf(sprintf('%s.pdf', output))
+
 # MA plot
-plotMA(res, 0.01)
+gp = ggplot(res, aes(x=logCPM, y=logFC))
+gp = gp + geom_point(aes(color=cut(as.double(FDR), breaks=c(0, 0.01, 0.05, 1))))
+gp = gp + scale_color_brewer(name="FDR", palette="Set1")
+gp
+
+# Volcano plot
+gp = ggplot(res, aes(x=logFC, y=-log10(as.double(FDR))))
+gp = gp + geom_point(aes(color=cut(as.double(FDR), breaks=c(0, 0.01, 0.05, 1))))
+gp = gp + scale_color_brewer(name="FDR", palette="Set1")
+gp = gp + scale_y_log10()
+gp
+
 # plot dispersion estimates
 plotBCV(M)
 dev.off()
