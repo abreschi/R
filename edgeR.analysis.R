@@ -1,10 +1,7 @@
 #!/usr/bin/env Rscript 
 
-# -- Variables --
 
 options(stringsAsFactors=F)
-pseudocount = 1e-04
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7") 
 
 
 #########################
@@ -31,13 +28,14 @@ make_option(c("-s", "--n_samples"), help="minimum number of samples with cpm > \
 make_option(c("-c", "--coefficient"), help="the coefficient for the comparison [default=last field]", type='integer'),
 make_option(c("-o", "--output"), help="additional suffix for output [default=%default]", default='out'),
 make_option(c("-d", "--output_dir"), help="choose the output directory [default=%default]", default="./"),
-make_option(c("-g", "--genes"), help='a file with a list of genes to filter', type='character', default=NA)
+make_option(c("-g", "--genes"), help='a file with a list of genes to filter', type='character'),
+make_option(c("-v", "--verbose"), action="store_true", default=FALSE, help="verbose output")
 )
 
 parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
 arguments <- parse_args(parser, positional_arguments = TRUE)
 opt <- arguments$options
-print(opt)
+if (opt$verbose) {print(opt)}
 
 
 ##------------
@@ -45,14 +43,47 @@ print(opt)
 ##------------ 
 
 
-cat('Libraries loading... ')
+if(opt$verbose) {cat('Libraries loading... ')}
 
-suppressPackageStartupMessages(library(reshape2))
-suppressPackageStartupMessages(library(ggplot2))
-suppressPackageStartupMessages(library(plyr))
+suppressPackageStartupMessages(library('reshape2'))
+suppressPackageStartupMessages(library('ggplot2'))
+#suppressPackageStartupMessages(library(plyr))
 suppressPackageStartupMessages(library('edgeR'))
 
-cat('DONE\n\n')
+if (opt$verbose) {cat('DONE\n\n')}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Function that estimates the average of gene counts
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+mglmAverage = function(object, lev,  prior.count = 0.125, dispersion = 'auto') {
+	# Evaluate dispersion argument
+    dispersion <- switch(dispersion, common = object$common.dispersion,
+        trended = object$trended.dispersion, tagwise = object$tagwise.dispersion,
+        auto = getDispersion(object))
+    # Get the library size 
+    lib.size <- object$samples$lib.size * object$samples$norm.factors
+    # Divide each library size by the mean library size across ALL conditions
+    # they will be pseudo counts for all genes in each sample
+    prior.count <- prior.count * lib.size/mean(lib.size)
+    # Take the log of the library size (I don't understand why they add prior.count since it 
+    # is negligible compared to the library size)
+    offset.aug <- log(lib.size + 2 * prior.count)
+
+    # Indeces of the specified level
+    j <- object$samples$group == lev
+    # Number of elements in level
+    n <- sum(j)
+    # Number of elements for which there are counts
+    ntags <- nrow(object$counts)
+    # Subset the matrix of counts
+    y <- object$counts[, j, drop=FALSE]
+
+    mglmAvg = mglmOneGroup(y + matrix(prior.count[j], ntags, n, byrow = TRUE), 
+        offset = offset.aug[j], dispersion = dispersion)
+	names(mglmAvg) <- rownames(object$counts)
+    return(mglmAvg)
+}
 
 
 
@@ -70,31 +101,50 @@ genes = rownames(m)
 m = (apply(m, 2, as.integer))
 rownames(m) <- genes
 
-# read the matrix
-if (!is.na(opt$genes)) {
+if (opt$verbose) {print(head(m))}
+
+
+# Keep only selected genes if needed
+if (!is.null(opt$genes)) {
 fgenes = as.character(read.table(opt$genes, h=F)$V1)
 m = m[intersect(rownames(m),fgenes),]
 }
 
+
 # read the metadata from the metadata file
 mdata = read.table(opt$metadata, h=T, sep='\t')
+mdata$labExpId <- gsub(",", ".", mdata$labExpId)
+
 
 # specify the design to the program
 fields = strsplit(opt$fields, ",")[[1]]
+mdata = unique(mdata[c("labExpId", fields)])
+
 
 # ONLY ONE CONDITION
 
 if (length(fields) == 1) {
-condition = as.factor(sapply(colnames(m), function(x) unique(subset(mdata, labExpId == x)[,fields])))
+#condition = as.factor(sapply(colnames(m), function(x) unique(subset(mdata, labExpId == x)[,fields])))
+condition = factor(mdata[match(colnames(m), mdata[,"labExpId"]), fields])
 
 # create count object for edgeR
 M = DGEList(counts=na.omit(m), group = condition)
 
-# normalisation
+# This also estimates the library size as the sum of all reads in each sample
+# To change the library size
+# M$samples$lib.size <- colSums(M$counts)
+
+# TO DO: Add option to provide the library size 
+
+
+# ~~~~ Normalisation ~~~~~
+
+# Divide by the library size
 cpm.m <- cpm(M)
+# Filter by cpm and number of samples where the gene is expressed
 M <- M[rowSums(cpm.m > opt$cpm) >= opt$n_samples,]
-M$samples$lib.size <- colSums(M$counts)
-M <- calcNormFactors(M)
+# Normalize by TMM
+M <- calcNormFactors(M, method="TMM")
 
 # variance estimation
 M <- estimateCommonDisp(M, verbose=T)
@@ -103,6 +153,12 @@ M <- estimateTagwiseDisp(M)
 # calling differential expression
 et <- exactTest(M)
 res = topTags(et, n=nrow(et))$table
+
+# Add the estimated averages for each level (the function is a subset of exactTest)
+for(lev in levels(condition)) {
+#	avg = mglmAverage(M, lev)
+	res[lev] = round(mglmAverage(M, lev)[rownames(res)], digits=2)
+}
 
 # MULTIPLE CONDITIONS
 
@@ -139,7 +195,12 @@ lrt <- glmLRT(fit, coef=coeff)
 res = topTags(lrt, n=nrow(lrt))$table
 }
 
-# otuput results to a file
+# format the otuput and write to a file
+res$logFC <- round(res$logFC, 2)
+res$logCPM <- round(res$logCPM, 2)
+res$PValue <- format(res$PValue, digits=2)
+res$FDR <- format(res$FDR, digits=2)
+
 output = sprintf("%s/edgeR.cpm%s.n%s.%s", opt$output_dir, opt$cpm, opt$n_samples, opt$output)
 write.table(res, file=sprintf("%s.tsv", output), quote=F, sep='\t',row.names=T)
 #write.table(cpm.m, file=sprintf("cpm.%s.tsv",opt$output), quote=F, sep='\t',row.names=T)
@@ -155,4 +216,15 @@ plotMA(res, 0.01)
 plotBCV(M)
 dev.off()
 
+
+
+
+
+
+
+
+
+
 q(save='no')
+
+
