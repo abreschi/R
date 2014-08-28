@@ -158,7 +158,8 @@ res = topTags(et, n=nrow(et))$table
 for(lev in levels(condition)) {
 #	avg = mglmAverage(M, lev)
 #	res[lev] = round(mglmAverage(M, lev)[rownames(res)], digits=2)
-	res = cbind(lev=round(mglmAverage(M, lev)[rownames(res)], digits=2), res)
+	res = cbind(avg=round(mglmAverage(M, lev)[rownames(res)], digits=2), res)
+	colnames(res)[which(colnames(res) == "avg")] <- lev
 }
 
 # MULTIPLE CONDITIONS
