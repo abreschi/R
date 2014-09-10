@@ -18,8 +18,15 @@ make_option(c("-i", "--input_matrix"), default="stdin",
 	help="the matrix you want to analyze. \"stdin\" for stdin [default=%default]"),
 
 make_option(c("--header"), action="store_true", default=FALSE, help="The file has header [default=%default]"),
-make_option(c("-x", "--x_axis"), type='integer', help="the index (1-based) of the column you want on the x axis"),
-make_option(c("-y", "--y_axis"), type='integer', help="the index (1-based) of the column you want on the y axis"),
+make_option(c("-x", "--x_axis"), type='integer', default=1,
+	help="the index (1-based) of the column you want on the x axis [default=%default]"),
+
+make_option(c("-y", "--y_axis"), type='integer', default=2,
+	help="the index (1-based) of the column you want on the y axis [default=%default]"),
+
+make_option(c("-C", "--color_by"), type="integer", 
+	help="Index of the column by which to color the dots [default=%default]"),
+
 make_option(c("-o", "--output_suffix"), help="output filename [default=%default]", default='scatterplot.out.pdf'),
 make_option(c("-t", "--type"), help="<tile>, <hex>, <scatter> [default=%default]", default="tile"),
 make_option(c("-b", "--binwidth"), help="comma-separated values for binwidth x,y [default=%default]", default="1,1"),
@@ -134,7 +141,10 @@ gp = gp + geom_hex(aes(fill=cut(..count.., c(0,1,2,5,10,25,50,75,100,500,Inf))),
 gp = gp + scale_fill_manual('counts', values=terrain.colors(length(countBins))) }
 
 if (opt$type == "scatter") {
-gp = gp + geom_point(shape=".")
+#	if (!is.null(opt$color_by)) {
+#		gp = gp + geom_point(aes_string(color=colnames(df)[opt$color_by]))
+#	}
+	gp = gp + geom_point(aes_string(color=colnames(df)[opt$color_by]), size=1)
 }
 
 
