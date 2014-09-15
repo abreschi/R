@@ -76,9 +76,16 @@ if (is.null(opt$lcol)) {
 
 
 # change the surface colors
-if (!is.null(opt$fcol)) {
+if (is.null(opt$fcol)) {
+	face_col <- rainbow(length(venn_list))
+}else{
 	face_col = strsplit(opt$fcol, ',')[[1]]
 }
+
+
+#if (!is.null(opt$fcol)) {
+#	face_col = strsplit(opt$fcol, ',')[[1]]
+#}
 
 # change the label colors
 if (is.null(opt$Lcol)) {
