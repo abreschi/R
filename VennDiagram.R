@@ -4,8 +4,6 @@
 # -- Variables --
 
 options(stringsAsFactors=F)
-pseudocount = 1e-04
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7") 
 
 
 ##################
@@ -18,6 +16,13 @@ option_list <- list(
 make_option(c("-l", "--lcol"), help="Comma-separeted colors for the lines of the sets. Only names accepted for the moment! [default: black]"),
 make_option(c("-f", "--fcol"), help="Comma-separated colors for the surfaces of the sets. Only names accepted for the moment! [default:palette]"),
 make_option(c("-L", "--Lcol"), help="Comma-separated colors for the labels of the sets. Only names accepted for the moment! [default:black]"),
+
+make_option(c("-W", "--width"), default=3, type='integer',
+	help="width of the plot in inches [default=%default]"),
+
+make_option(c("-H", "--height"), default=3, type='integer',
+	help="height of the plot in inches [default=%default]"),
+
 make_option(c("-o", "--output"), help="output file name WITHOUT extension [default=Venn.out]", default="venn.out")
 )
 
@@ -83,10 +88,6 @@ if (is.null(opt$fcol)) {
 }
 
 
-#if (!is.null(opt$fcol)) {
-#	face_col = strsplit(opt$fcol, ',')[[1]]
-#}
-
 # change the label colors
 if (is.null(opt$Lcol)) {
 	label_col = rep('black', length(venn_list))
@@ -97,10 +98,21 @@ if (is.null(opt$Lcol)) {
 
 
 # plotting...
+
+image_type = 'png'
+w = opt$width
+h = opt$height
 venn.diagram(venn_list, 
-	filename=sprintf("%s.tiff", opt$output), 
+	filename=sprintf("%s.%s", opt$output, image_type), 
+	imagetype=image_type,
+	units='in',
+	width=w,
+	height=h,
 	col=col,
 	cat.col=label_col,
+	cat.pos=c(-20, 20, 20, 30, 10)[1:length(venn_list)],
+	cat.dist=(w*c(0.01,0.01,0,0,0))[1:length(venn_list)],
+	cat.cex=c(0.8,0.8,0.8,0.8,0.8)[1:length(venn_list)],
 	fill=face_col
 )
 
