@@ -7,12 +7,11 @@
 ##------------
 ## LIBRARIES
 ##------------ 
-suppressPackageStartupMessages(library(reshape2))
-suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library("reshape2"))
+suppressPackageStartupMessages(library("ggplot2"))
 suppressPackageStartupMessages(library("optparse"))
 
 options(stringsAsFactors=F)
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7") 
 
 ##################
 # OPTION PARSING
@@ -166,7 +165,8 @@ if (!is.null(opt$scale_by)) {
 #	if (length(scale_by) == 1){for (i in 1:ncol(ids)) { new_m[, ids[[i]]] <- equil(new_m[,ids[[i]]])}  }
 }
 
-
+# Round the values for the output
+new_m = round(new_m, 3)
 
 print_rownames = TRUE
 if (length(char_cols) != 0) {new_m <- cbind(genes, new_m); print_rownames=FALSE}
