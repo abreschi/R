@@ -86,7 +86,7 @@ if (!is.null(opt$file_sel)) {
 	# Order the data
 	orderm = apply(m, 2, order, na.last=T, decreasing=T)
 	# NB: orderm has lost the rownames 
-	thresholds = c(2:10 %o% 10^(0:4))
+	thresholds = c(1:10 %o% 10^(0:4))
 	thresholds = thresholds[which(thresholds < nrow(m))]
 
 	props = sapply(thresholds, function(thr) {
@@ -135,7 +135,7 @@ gp = gp + annotation_logticks(sides="b")
 
 if (!is.null(opt$file_sel)) {
 gp = gp + geom_point(data=prop_df, aes(x,y), shape=18, size=2)
-gp = gp + geom_point(data=prop_df, aes(x,y), shape=18, size=1.8, color='red')
+gp = gp + geom_point(data=prop_df, aes(x,y), shape=18, size=1.7, color='yellow')
 }
 gp
 
