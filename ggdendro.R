@@ -79,7 +79,10 @@ make_option(c("-o", "--output"),
 	help="Output file name, with the extension. [default=%default]", default="ggdendro.out.pdf"),
 
 make_option(c("-v", "--verbose"), default=FALSE, action="store_true",
-	help="Verbose output [default=%default]")
+	help="Verbose output [default=%default]"),
+
+make_option(c("--debug"), type='integer',
+	help="number of lines you want to keep for debugging")
 
 )
 
@@ -151,7 +154,7 @@ if (opt$input_matrix == "stdin") {
 }
 if (opt$verbose) {cat("DONE\n")}
 
-m = m[1:500,]
+if (!is.null(opt$debug)) {m = m[1:opt$debug,]}
 
 # Read palette
 if (!is.null(opt$colSide_palette)) {
@@ -297,19 +300,18 @@ if (!is.null(opt$colSide_by)) {
 	legend_width_inch = max(sapply(ColSide_legends, function(x) sum(sapply(x$widths, convertUnit, "in"))))
 	legend_height_inch = sum(sapply(ColSide_legends, function(x) sum(sapply(x$heights, convertUnit, "in")))) + 0.1*(length(ColSide_legends)-1)
 	dendro_w = TOT_W - (legend_width_inch + right_margin + left_margin + vert_inter_space) 
-#	legend_height_inch = max(sapply(ColSide_legends, function(x) sum(sapply(x$heights, convertUnit, "in"))))
-#	legend_width_inch = max(strwidth(unlist(unique(df[c(colSide_by, rowSide_by)])), unit="inch")) + 0.4
-#	legend_height_inch = total_h/length(c(colSide_by, rowSide_by))
 	side_legend_vps = list()
+	legend_h = 0
 	for (i in 1:length(colSide_by)) {
 		side_legend_vp = viewport(
-			y = (TOT_H - 0.01) - legend_height_inch*(i-1),
+			y = (TOT_H - 0.01) - legend_h,
 			x = left_margin + dendro_w,
-			h = legend_height_inch,
+			h = sum(sapply(ColSide_legends[[i]]$heights, convertUnit, "in")),
 			w = legend_width_inch,
 			default.units = "inch",
 			just = c("left", "top")
 		)
+		legend_h = sum(sapply(ColSide_legends[[i]]$heights, convertUnit, "in"))
 		side_legend_vps[[i]] = side_legend_vp
 	}
 } else {legend_width_inch = 0}
@@ -328,15 +330,15 @@ if (!is.null(opt$colSide_by)){
 			w = dendro_w,
 			default.units = "inch",
 			just = c("left", "bottom") 
-		 )
-		ColSide_label_vps[[i]] = viewport(
-			y = 0.01 + colbar_h*(i-1),
-			x = left_margin + dendro_w,
-			h = colbar_h,
-			w = as.numeric(strwidth(colSide_by, "inch")),
-			default.units = "inch",
-			just = c("left", "bottom")
 		)
+	#	ColSide_label_vps[[i]] = viewport(
+	#		y = 0.01 + colbar_h*(i-1),
+	#		x = left_margin + dendro_w,
+	#		h = colbar_h,
+	#		w = as.numeric(strwidth(colSide_by, "inch")),
+	#		default.units = "inch",
+	#		just = c("left", "bottom")
+	#	)
 	}
 	dendro_h = TOT_H - (colbar_h+0.02)*length(ColSides)
 } 
@@ -395,7 +397,7 @@ print(col_ggdendro, vp=colDendro_vp, newpage=FALSE)
 
 # Print column side color scales
 if (!is.null(opt$colSide_by)) {
-	for (i in 1:length(colSide_by)) {
+	for (i in length(colSide_by):1) {
 		all_side_legends = ColSide_legends
 		pushViewport(side_legend_vps[[i]]); grid.draw(all_side_legends[[i]]); upViewport()
 	}
