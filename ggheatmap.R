@@ -377,6 +377,7 @@ col_labels_inches = max(strwidth(col_labels, units="in", cex=base_size*(as.numer
 
 
 
+
 # ------------------- Matrix plot -------------------
 
 p1 = ggplot(df, aes(x=Var2, y=Var1))
