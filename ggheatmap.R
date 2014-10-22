@@ -55,7 +55,7 @@ make_option(c("--colSide_by"),
 	help="Specify the field(s), you want the column sides coloured by. If empty no color side is added."),
 
 make_option(c("--colSide_palette"), #default="/users/rg/abreschi/R/palettes/cbbPalette.8.txt",
-	help="Palette for colSide colors"),
+	help="Palette for colSide colors. Leave empty for color_hue. If multiple palettes are needed, write them comma-separated"),
 
 make_option(c("--rowSide_by"), 
 	help="Specify the field(s), you want the row sides coloured by. If empty no color side is added."),
@@ -87,6 +87,9 @@ make_option(c("-H", "--height"), type="integer",
 
 make_option(c("--matrix_palette"), default="/users/rg/abreschi/R/palettes/terrain.colors.3.txt",
 	help="Palette for the heatmap color grandientn [default=%default]"),
+
+make_option(c("--matrix_legend_title"), default="value",
+	help="Title for matrix color scale [default=%default]"),
 
 make_option(c("-o", "--output"), default="ggheatmap.out.pdf",
 	help="Output file name, with the extension. [default=%default]"),
@@ -164,7 +167,9 @@ if (!is.null(opt$rowSide_palette)) {
 }
 
 if (!is.null(opt$colSide_palette)) {
-	colSide_palette = as.character(read.table(opt$colSide_palette, h=F, comment.char="%")$V1)
+	colSide_palette_files = strsplit(opt$colSide_palette, ",")[[1]]
+	colSide_palette = sapply(colSide_palette_files,function(x)  as.character(read.table(x, h=F, comment.char="%")$V1))
+#	colSide_palette = as.character(read.table(opt$colSide_palette, h=F, comment.char="%")$V1)
 	if (opt$verbose) {cat("ColSide Palette:", colSide_palette, "\n")}
 }
 
@@ -209,10 +214,21 @@ if (!is.null(opt$row_metadata)) {
 }
 
 # read which fields are needed from the metadata
-if (!is.null(opt$colSide_by)) {colSide_by = strsplit(opt$colSide_by, ",")[[1]]} else {colSide_by = NULL}
+if (!is.null(opt$colSide_by)) {
+	colSide_by = strsplit(opt$colSide_by, ",")[[1]]
+	# Check that there are enough color palettes for the column
+	if (length(colSide_palette) == 1) {
+		colSide_palette = rep(colSide_palette, length(colSide_by))}
+	if (length(colSide_palette) >1 & length(colSide_palette) != length(colSide_by))	{
+		cat("ERROR: Inconsistent number of column factors and palettes\n");	q(save='no')}
+} else {
+	colSide_by = NULL}
+
 if (!is.null(opt$rowSide_by)) {rowSide_by = strsplit(opt$rowSide_by, ",")[[1]]} else {rowSide_by = NULL}
 if (!is.null(opt$col_labels) && opt$col_labels != "none") {col_label_fields = strsplit(opt$col_labels,",")[[1]]} else {col_label_fields=NULL}
 if (!is.null(opt$row_labels) && opt$row_labels != "none") {row_label_fields = strsplit(opt$row_labels,",")[[1]]} else {row_label_fields=NULL}
+
+
 
 col_mdata_header = unique(c(opt$merge_col_mdata_on, colSide_by, col_label_fields))
 row_mdata_header = unique(c(opt$merge_row_mdata_on, rowSide_by, row_label_fields))
@@ -388,7 +404,7 @@ p1 = p1 + scale_y_discrete(limits=row_limits, labels=row_labels)
 p1 = p1 + scale_fill_gradientn(colours=matrix_palette)
 p1 = p1 + theme(plot.margin=unit(c(0.00, 0.00, 0.01, 0.01),"inch"))
 p1 = p1 + labs(x=NULL, y=NULL)
-p1 = p1 + guides(fill=guide_colourbar(title.position="top", direction="horizontal", title.hjust=0))
+p1 = p1 + guides(fill=guide_colourbar(title.position="top", direction="horizontal", title.hjust=0, title=opt$matrix_legend_title))
 p1_legend = g_legend(p1)
 p1 = p1 + theme(legend.position = "none")
 
@@ -406,7 +422,7 @@ if (!is.null(opt$colSide_by)) {
 		ColSide = ColSide + scale_x_discrete(limits = col_limits, labels=NULL, expand=c(0,0))
 		ColSide = ColSide + scale_y_discrete(labels=NULL, expand=c(0,0))
 		if (!is.null(opt$colSide_palette)) {
-			ColSide = ColSide + scale_fill_manual(values=colSide_palette)
+			ColSide = ColSide + scale_fill_manual(values=colSide_palette[[i]])
 		} else {
 			ColSide = ColSide + scale_fill_hue()
 		}
@@ -579,7 +595,8 @@ total_w = matrix_vp_x + matrix_vp_w + 0.25*length(rowSide_by) + max(row_dendro_w
 # >>>>> Column and row side legends viewport <<<<<<<<<<<<<<<<<
 
 if (!is.null(opt$colSide_by) || !is.null(opt$rowSide_by)) {
-	legend_width_inch = max(strwidth(unlist(unique(df[c(colSide_by, rowSide_by)])), unit="inch")) + 0.4
+#	legend_width_inch = max(strwidth(unlist(unique(df[c(colSide_by, rowSide_by)])), unit="inch")) + 0.4
+	legend_width_inch = max(sapply(c(ColSide_legends, RowSide_legends), function(x) sum(sapply(x$widths, convertUnit, "in"))))
 	legend_height_inch = total_h/length(c(colSide_by, rowSide_by))
 	side_legend_vps = list()
 	for (i in 1:length(c(colSide_by, rowSide_by))) {
