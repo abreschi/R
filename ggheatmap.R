@@ -91,6 +91,9 @@ make_option(c("--matrix_palette"), default="/users/rg/abreschi/R/palettes/terrai
 make_option(c("--matrix_legend_title"), default="value",
 	help="Title for matrix color scale [default=%default]"),
 
+#make_option(c("--matrix_legend_breaks"),
+#	help="Comma-separated breaks for the color scale"),
+#
 make_option(c("-o", "--output"), default="ggheatmap.out.pdf",
 	help="Output file name, with the extension. [default=%default]"),
 
@@ -168,15 +171,14 @@ if (!is.null(opt$rowSide_palette)) {
 
 if (!is.null(opt$colSide_palette)) {
 	colSide_palette_files = strsplit(opt$colSide_palette, ",")[[1]]
-	colSide_palette = sapply(colSide_palette_files,function(x)  as.character(read.table(x, h=F, comment.char="%")$V1))
-#	colSide_palette = as.character(read.table(opt$colSide_palette, h=F, comment.char="%")$V1)
+	colSide_palette = sapply(colSide_palette_files,function(x)  as.character(read.table(x, h=F, comment.char="%")$V1), simplify=FALSE)
 	if (opt$verbose) {cat("ColSide Palette:", colSide_palette, "\n")}
 }
 
 matrix_palette = as.character(read.table(opt$matrix_palette, h=F, comment.char="%")$V1)
 if (opt$verbose) {cat("Matrix Palette:", matrix_palette, "\n")}
 
-#m = m[1:1000,]
+#m = m[1:100,]
 
 # remove potential gene id columns
 char_cols <- which(sapply(m, class) == 'character')
@@ -219,7 +221,7 @@ if (!is.null(opt$colSide_by)) {
 	# Check that there are enough color palettes for the column
 	if (length(colSide_palette) == 1) {
 		colSide_palette = rep(colSide_palette, length(colSide_by))}
-	if (length(colSide_palette) >1 & length(colSide_palette) != length(colSide_by))	{
+	if (length(colSide_palette) >1 && length(colSide_palette) != length(colSide_by))	{
 		cat("ERROR: Inconsistent number of column factors and palettes\n");	q(save='no')}
 } else {
 	colSide_by = NULL}
@@ -396,15 +398,29 @@ col_labels_inches = max(strwidth(col_labels, units="in", cex=base_size*(as.numer
 
 # ------------------- Matrix plot -------------------
 
+#if (!is.null(opt$matrix_legend_breaks)) {
+#	breaks = as.numeric(strsplit(opt$matrix_legend_breaks, ",")[[1]])
+#}
+	
+
 p1 = ggplot(df, aes(x=Var2, y=Var1))
 p1 = p1 + geom_tile(aes(fill=value))
 p1 = p1 + theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1))
 p1 = p1 + scale_x_discrete(expand=c(0,0), limits=col_limits, labels=col_labels)
-p1 = p1 + scale_y_discrete(limits=row_limits, labels=row_labels)
+p1 = p1 + scale_y_discrete(expand=c(0,0), limits=row_limits, labels=row_labels)
+#p1 = p1 + scale_fill_gradientn(colours=matrix_palette, breaks=c(-2,0,2,4))
 p1 = p1 + scale_fill_gradientn(colours=matrix_palette)
 p1 = p1 + theme(plot.margin=unit(c(0.00, 0.00, 0.01, 0.01),"inch"))
 p1 = p1 + labs(x=NULL, y=NULL)
-p1 = p1 + guides(fill=guide_colourbar(title.position="top", direction="horizontal", title.hjust=0, title=opt$matrix_legend_title))
+p1 = p1 + guides(fill=guide_colourbar(
+	title.position="top", 
+	direction="horizontal", 
+	title.hjust=0, 
+	title=opt$matrix_legend_title
+))
+#if (!is.null(opt$matrix_legend_breaks)) {
+#	p1 = p1 + guides(fill=guide_colourbar(breaks=breaks))
+#}
 p1_legend = g_legend(p1)
 p1 = p1 + theme(legend.position = "none")
 
