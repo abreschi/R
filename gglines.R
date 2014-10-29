@@ -11,7 +11,7 @@ suppressPackageStartupMessages(library("optparse"))
 option_list <- list(
 
 make_option(c("-i", "--input"), type="character", default='stdin',
-	help="list of files with the bigWig profiles. Can be stdin [default=%default]"),
+	help="tab-separated file. Can be stdin [default=%default]"),
 
 make_option(c("-o", "--output"), default="profile.pdf", 
 	help="output file name with extension [default=%default]"),
@@ -54,7 +54,11 @@ make_option(c("-v", "--verbose"), action='store_true', default=FALSE,
 #make_option(c("-l", "--log"), action="store_true", default=FALSE, help="apply the log [default=FALSE]"),
 )
 
-parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
+parser <- OptionParser(
+	usage = "%prog [options] file", 
+	option_list = option_list,
+	description = "From a column file, plot a column vs another as lines"
+)
 arguments <- parse_args(parser, positional_arguments = TRUE)
 opt <- arguments$options
 if (opt$verbose) {print(opt)}
@@ -87,6 +91,13 @@ if (!is.null(opt$palette)) {
 	palette = read.table(opt$palette, h=FALSE, comment.char='%')$V1
 }
 
+# Read coloring factor
+if (!is.null(opt$color_by)) {
+	if (ncol(m)<opt$color_by) {
+		cat("ERROR: color factor index out of range\n")
+		q(save='no')
+	}
+}
 
 #~~~~~~~~~~~~
 # GGPLOT
