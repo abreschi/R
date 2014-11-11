@@ -34,8 +34,8 @@ make_option(c("--x_log"), action="store_true", help="x values log10 transformed 
 make_option(c("--y_log"), action="store_true", help="y values log10 transformed [default=%default]", default=FALSE),
 make_option(c("--x_psd"), help="pseudocount for x values [default=%default]", default=x_psd, type='double'),
 make_option(c("--y_psd"), help="pseudocount for y values [default=%default]", default=y_psd, type='double'),
-make_option("--x_title", help="write a title for x axis [default=%default]", default="x_title"),
-make_option("--y_title", help="write a title for y axis [default=%default]", default="y_title"),
+make_option("--x_title", help="write a title for x axis"),
+make_option("--y_title", help="write a title for y axis"),
 make_option("--legend_title", help="write a title for the legend [default=%default]", default="count"),
 
 make_option(c("--highlight"), 
@@ -124,6 +124,12 @@ if (!is.null(opt$highlight)) {
 }
 
 
+# Read the axis titles
+if (is.null(opt$x_title)) {x_title = x_col} else {x_title = opt$x_title}
+if (is.null(opt$y_title)) {y_title = y_col} else {y_title = opt$y_title}
+
+
+
 countBins <- c(0,1,2,5,10,25,50,75,100,500,Inf)
 
 gp = ggplot(df, aes_string(x=x_col, y=y_col)) 
@@ -141,14 +147,11 @@ gp = gp + geom_hex(aes(fill=cut(..count.., c(0,1,2,5,10,25,50,75,100,500,Inf))),
 gp = gp + scale_fill_manual('counts', values=terrain.colors(length(countBins))) }
 
 if (opt$type == "scatter") {
-#	if (!is.null(opt$color_by)) {
-#		gp = gp + geom_point(aes_string(color=colnames(df)[opt$color_by]))
-#	}
 	gp = gp + geom_point(aes_string(color=colnames(df)[opt$color_by]), size=1)
 }
 
 
-gp = gp + labs(x=opt$x_title, y=opt$y_title, title=plot_title)
+gp = gp + labs(x=x_title, y=y_title, title=plot_title)
 
 # Add the diagonal line
 
