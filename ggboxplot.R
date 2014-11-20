@@ -83,7 +83,6 @@ if (opt$verbose) {cat("DONE\n\n")}
 # ========
 
 
-
 # Read data
 if (opt$input == "stdin") {input=file('stdin')} else {input=opt$input}
 m = read.table(input, h=opt$header)
@@ -106,6 +105,16 @@ if (!is.null(opt$palette)) {
 	palette = read.table(opt$palette, h=FALSE, comment.char='%')$V1
 }
 
+
+# # Significance
+# levs = levels(as.factor(m[,x]))
+# pv = sapply(1:(length(levs)-1), function(i) {
+# 	distr1 = m[which(m[,x] == levs[i]), y];
+# 	distr2 = m[which(m[,x] == levs[i+1]), y];
+# 	return(suppressWarnings(ks.test(distr1, distr2)$p.value))
+# 	}
+# )
+# sign_df = data.frame(x=levs[-length(levs)], text=format(pv, digits=2))
 
 #~~~~~~~~~~~~
 # GGPLOT
@@ -142,6 +151,7 @@ if (!is.null(opt$palette)) {
 	gp = gp + scale_fill_hue()
 }
 
+#gp = gp + geom_text(data=sign_df, aes(x=x, y=1, label=text), hjust=-0.5)
 
 ggsave(opt$output, h=5, w=7)
 
