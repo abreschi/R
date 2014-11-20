@@ -37,7 +37,7 @@ make_option(c("--facet_by"), type="integer",
 make_option(c("--log"), action="store_true", default=FALSE,
 	help="apply the log to the y-axis [default=%default]"),
 
-make_option(c("-p", "--pseudocount"), type="numeric",
+make_option(c("-p", "--pseudocount"), type="numeric", default=1e-03,
 	help="Pseudocount for the log on the y-axis [default=%default]"),
 
 make_option(c("-t", "--title"), type="character", 
