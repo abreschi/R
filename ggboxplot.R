@@ -31,7 +31,8 @@ make_option(c("--xy"), type='character', default="1,2",
 make_option(c("-r", "--representation"), default="boxplot",
 	help="Choose representation [default=%default]"),
 
-#make_option(c("-f", "--facet"), type="integer", help="column index to facet"),
+make_option(c("--facet_by"), type="integer", 
+	help="column index to facet"),
 
 make_option(c("--log"), action="store_true", default=FALSE,
 	help="apply the log to the y-axis [default=%default]"),
@@ -151,6 +152,12 @@ if (!is.null(opt$palette)) {
 	gp = gp + scale_fill_hue()
 }
 
+# Read facet
+if (!is.null(opt$facet_by)) {
+	facet_col = colnames(m)[opt$facet_by]
+	facet_form = as.formula(sprintf("~%s", facet_col))
+	gp = gp + facet_wrap(facet_form)
+}
 #gp = gp + geom_text(data=sign_df, aes(x=x, y=1, label=text), hjust=-0.5)
 
 ggsave(opt$output, h=5, w=7)
