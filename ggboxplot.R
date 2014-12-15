@@ -52,6 +52,12 @@ make_option(c("--x_title"),
 make_option(c("-P", "--palette"), 
 	help='File with colors for the lines. Leave empty to use even color spacing'),
 
+make_option(c("-W", "--width"), default=7,
+	help='Width of the plot in inches [default=%default]'),
+
+make_option(c("-H", "--height"), default=5,
+	help='Height of the plot in inches [default=%default]'),
+
 make_option(c("-v", "--verbose"), action='store_true', default=FALSE,
 	help="Verbose output [default=%default]")
 
@@ -63,6 +69,8 @@ parser <- OptionParser(
 	option_list = option_list,
 	description = "From a column file, plot a column vs another as lines"
 )
+
+
 arguments <- parse_args(parser, positional_arguments = TRUE)
 opt <- arguments$options
 if (opt$verbose) {print(opt)}
@@ -129,15 +137,30 @@ theme_update(
 	plot.title = element_text(vjust=1)
 )
 
+
 if (!is.null(opt$color_by)) {color_by = colnames(m)[opt$color_by]} else {color_by=NULL}
 if (!is.null(opt$fill_by)) {fill_by = colnames(m)[opt$fill_by]} else {fill_by=NULL}
+mapping = aes_string(color=color_by, fill=fill_by)
+
 alpha = 0.9
+
+geom_params = list()
+
+geom_params$alpha = alpha
+geom_params$size = 1
+geom_params$outliers.colour = NULL
+
+boxplotLayer <- layer(
+	geom = "boxplot",
+	geom_params = geom_params,
+	mapping = mapping
+)
 
 
 # plot 
 gp = ggplot(m, aes_string(x=x, y=y))
 if (opt$representation == "boxplot") { 
-	gp = gp + geom_boxplot(aes_string(color=color_by, fill=fill_by), alpha=alpha, size=1)
+	gp = gp + boxplotLayer
 }
 if (opt$representation == "violin") {
 	gp = gp + geom_violin(aes_string(color=color_by, fill=fill_by), alpha=alpha, size=1)
@@ -145,11 +168,17 @@ if (opt$representation == "violin") {
 gp = gp + labs(title=opt$title, y=opt$y_title, x=opt$x_title)
 gp = gp + theme(axis.text.x=element_text(angle=45, hjust=1))
 
-# Color scale
+# Fill scale
 if (!is.null(opt$palette)) {
 	gp = gp + scale_fill_manual(values=palette)
 } else {
 	gp = gp + scale_fill_hue()
+}
+# Color scale
+if (!is.null(opt$palette)) {
+	gp = gp + scale_color_manual(values=palette)
+} else {
+	gp = gp + scale_color_hue()
 }
 
 # Read facet
@@ -160,7 +189,7 @@ if (!is.null(opt$facet_by)) {
 }
 #gp = gp + geom_text(data=sign_df, aes(x=x, y=1, label=text), hjust=-0.5)
 
-ggsave(opt$output, h=5, w=7)
+ggsave(opt$output, h=opt$height, w=opt$width)
 
 # EXIT
 quit(save='no')
