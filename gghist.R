@@ -2,7 +2,6 @@
 
 
 options(stringsAsFactors=FALSE)
-cbbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#000000", "#F0E442", "#0072B2", "#D55E00", "#CC79A7") 
 
 ##################
 # OPTION PARSING
@@ -18,8 +17,17 @@ make_option(c("-i", "--input"), default="stdin",
 make_option(c("-o", "--output"), default="gghist.out.pdf",
 	help="Output file name [default=%default]"),
 
+make_option(c("-x", "--x_axis"), default=1,
+	help="Index of the column with values, or labels if you already have counts [default=%default]"),
+
+make_option(c("-y", "--y_axis"), default=NULL, type="integer",
+	help="Index of the column with values, in case x provides counts. This will plot identity. Leave empty for default histogram [default=%default]"),
+
 make_option(c("--header"), action="store_true", default=FALSE,
 	help="Use this if the input has a header [default=%default]"),
+
+make_option(c("--position"), default='dodge',
+	help="Position for histogram [default=%default]"),
 
 make_option(c("--scale_x_log10"), action="store_true", default=FALSE,
 	help="log10-transform x scale [default=%default]"),
@@ -39,11 +47,17 @@ make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
 make_option(c("-f", "--fill"), default="aquamarine",
 	help="choose the color which you want to fill the histogram with"),
 
-make_option(c("-c", "--color"), default="grey",
+make_option(c("-c", "--color"), default="white",
 	help="choose the color which you want to contour the histogram with"),
 
 make_option(c("-F", "--fill_by"), type='numeric',
 	help="the column index with the factor to fill by. Leave empty for no factor."),
+
+make_option(c("-P", "--palette"), 
+        help='File with colors for the lines. Leave empty to use even color spacing'),
+
+make_option(c("--facet_by"), type='numeric',
+	help="the column index with the factor to facet by. Leave empty for no factor."),
 
 make_option(c("-W", "--width"), default=7,
 	help="width of the plot in inches. [default=%default]"),
@@ -79,54 +93,107 @@ if (opt$verbose) {cat("DONE\n\n")}
 
 
 # Read data
-
-if (opt$input == "stdin") {
-	m = read.table(file("stdin"), h=opt$header) 
-} else {
-	m = read.table(opt$input, h=opt$header)
-}
+if (opt$input == "stdin") {input=file("stdin")} else {input=opt$input}
+m = read.table(input, h=opt$header) 
 
 df = m
 
+# Read facet
+if (!is.null(opt$facet_by)) {facet_formula = as.formula(sprintf("~%s", colnames(df)[opt$facet]))}
 
-if (!is.null(opt$fill_by)) {
-	fill_by = colnames(df)[opt$fill_by]
+# Read columns
+x_col = colnames(df)[opt$x_axis]
+if (!is.null(opt$y_axis)) {y_col = colnames(df)[opt$y_axis]}
+if (!is.null(opt$fill_by)) {F_col = colnames(df)[opt$fill_by]}
+
+# Read palette
+if (!is.null(opt$palette)) {
+	palette = as.character(read.table(opt$palette, h=F, comment.char="%")$V1)
 }
 
 
+#================
 # GGPLOT
+#================
+
 
 theme_set(theme_bw(base_size=20))
+theme_update(
+	axis.text.x=element_text(angle=45, hjust=1, vjust=1),
+	legend.key = element_rect(color='white'),
+	panel.grid.minor = element_blank(),
+	panel.grid.major = element_blank()
+)
 
-gp = ggplot(df, aes_string(x = colnames(df)[1]))
-if (is.null(opt$binwidth)) {
-	gp = gp + geom_histogram(fill=opt$fill, color=opt$color, right=TRUE, include.lowest=TRUE)
-} else {
-	gp = gp + geom_histogram(fill=opt$fill, color=opt$color, right=TRUE, include.lowest=TRUE, binwidth=opt$binwidth)
+# Stat parameters 
+stat = ifelse(is.null(opt$y_axis), "bin", "identity")
+
+stat_params = list(
+	right=TRUE, 
+	include.lowest=TRUE
+)
+
+# specify binwidth
+if (!is.null(opt$binwidth)) {
+	stat_params$binwidth = opt$binwidth
 }
 
+geom_params = list()
+
+if (is.null(opt$fill_by)) {
+	geom_params$fill = opt$fill
+	geom_params$color = opt$color
+}
+
+# specify fill column
 if (!is.null(opt$fill_by)) {
-	gp = gp + geom_histogram(aes_string(fill=fill_by))
+	mapping <- aes_string(fill=F_col)
+} else {
+	mapping = NULL
 }
 
-gp = gp + theme(axis.text.x=element_text(angle=45, hjust=1))
+# define histogram layer 
+histLayer <- layer(
+    geom = "bar",
+    geom_params = geom_params,
+	position = opt$position,
+	mapping = mapping,
+    stat = stat,
+    stat_params = stat_params
+)
+
+
+# start the plot
+if (is.null(opt$y_axis)) {
+	gp = ggplot(df, aes_string(x = x_col))
+} else {
+	gp = ggplot(df, aes_string(x = x_col, y = y_col))
+}
+
+gp = gp + histLayer
 
 if (!is.character(df[,1])) {
 	avg = mean(df[,1], na.rm=TRUE)
 	med = median(df[,1], na.rm=TRUE)
 	gp = gp + geom_point(aes(x=avg, y=0), size=2)
 	gp = gp + geom_vline(xintercept=med, linetype=2)
-	gp = gp + theme(axis.text.x=element_text(angle=0, hjust=0.5))
 }
 
-
-if (opt$scale_x_log10) {
-	gp = gp + scale_x_log10()
+# Color scale
+if (!is.null(opt$fill_by)) {
+	if (!is.null(opt$palette)) {
+		gp = gp + scale_fill_manual(values=palette)
+	} else {
+		gp = gp + scale_fill_hue()
+	}
 }
 
-if (opt$scale_y_log10) {
-	gp = gp + scale_y_log10()
+if (!is.null(opt$facet_by)) {
+	gp = gp + facet_wrap(facet_formula)
 }
+
+if (opt$scale_x_log10) {gp = gp + scale_x_log10()}
+if (opt$scale_y_log10) {gp = gp + scale_y_log10()}
 
 gp = gp + labs(y=opt$y_title, x=opt$x_title)
 
