@@ -24,8 +24,8 @@ suppressPackageStartupMessages(library("optparse"))
 
 option_list <- list(
 
-make_option(c("-i", "--input_matrix"), 
-	help="the matrix you want to analyze. \"stdin\" to read from standard input"),
+make_option(c("-i", "--input_matrix"), default="stdin", 
+	help="the matrix you want to analyze. \"stdin\" to read from standard input [default=%default]"),
 
 make_option(c("-l", "--log"), action="store_true", default=FALSE, 
 	help="apply the log10. NAs are treated as 0s and a pseudocount is added if specified [default=%default]"),
@@ -152,11 +152,9 @@ theme_update(axis.ticks.length = unit(0.01, "inch"))
 
 
 # read table
-if (opt$input_matrix == "stdin") {
-	m = read.table(file("stdin"), h=T, sep="\t")
-} else {
-	m = read.table(opt$input_matrix, h=T, sep="\t")
-}
+if (opt$input_matrix == "stdin") {input=file("stdin")} else {input=opt$input_matrix}
+m = read.table(input, h=T, sep="\t")
+
 
 # Make valid row and column names
 rownames(m) <- make.names(rownames(m))
@@ -219,10 +217,12 @@ if (!is.null(opt$row_metadata)) {
 if (!is.null(opt$colSide_by)) {
 	colSide_by = strsplit(opt$colSide_by, ",")[[1]]
 	# Check that there are enough color palettes for the column
-	if (length(colSide_palette) == 1) {
-		colSide_palette = rep(colSide_palette, length(colSide_by))}
-	if (length(colSide_palette) >1 && length(colSide_palette) != length(colSide_by))	{
-		cat("ERROR: Inconsistent number of column factors and palettes\n");	q(save='no')}
+	if (!is.null(opt$colSide_palette)) {
+		if (length(colSide_palette) == 1) {
+			colSide_palette = rep(colSide_palette, length(colSide_by))}
+		if (length(colSide_palette) >1 && length(colSide_palette) != length(colSide_by))	{
+			cat("ERROR: Inconsistent number of column factors and palettes\n");	q(save='no')}
+	}
 } else {
 	colSide_by = NULL}
 
@@ -379,8 +379,8 @@ if (opt$row_dendro) {
 	row_limits = rownames(m)[rowHC$order]
 	row_labels = row_labels[rowHC$order]
 } else {
-	row_limits = rownames(m)
-	row_labels = row_labels
+	row_limits = rev(rownames(m))
+	row_labels = rev(row_labels)
 }
 
 
