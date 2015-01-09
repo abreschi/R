@@ -26,19 +26,17 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2"
 
 option_list <- list(
 make_option(c("-i", "--input_matrix"), help="the matrix with READ COUNTS you want to analyze"),
-#make_option(c("-l", "--log"), action="store_true", default=FALSE, help="apply the log [default=FALSE]"),
-#make_option(c("-p", "--pseudocount"), type="double", help=sprintf("specify a pseudocount for the log [default=%s]",pseudocount), default=pseudocount),
+make_option(c("-r", "--replace_NAs"), action="store_true", default=FALSE, help="replace NAs with 0 [default=%default]"),
 make_option(c("-m", "--metadata"), help="tsv file with metadata on matrix experiment"),
 make_option(c("-f", "--fields"), help="choose the fields you want to use in the differential expression, comma-separated"),
 make_option(c("-o", "--output"), help="output file name"),
-#make_option(c("-f", "--fill_by"), help="choose the color you want to fill by [default=NA]", type='character', default=NA)
-make_option(c("-g", "--genes"), help='a file with a list of genes to filter', type='character', default=NA)
+make_option(c("-v", "--verbose"), action="store_true", default=FALSE)
 )
 
 parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
 arguments <- parse_args(parser, positional_arguments = TRUE)
 opt <- arguments$options
-print(opt)
+if(opt$verbose) {print(opt)}
 
 
 
@@ -52,29 +50,41 @@ genes = rownames(m)
 m = (apply(m, 2, as.integer))
 rownames(m) <- genes
 
-# read the matrix
-if (!is.na(opt$genes)) {
-fgenes = as.character(read.table(opt$genes, h=F)$V1)
-m = m[intersect(rownames(m),fgenes),]
-}
+if (opt$replace_NAs) {m = replace(m, is.na(m), 0)}
 
 # read the metadata from the metadata file
 mdata = read.table(opt$metadata, h=T, sep='\t')
+mdata["labExpId"] <- gsub("[,-]", ".", mdata[,"labExpId"])
+
 
 # specify the design to the program
 fields = strsplit(opt$fields, ",")[[1]]
+#mdata = unique(mdata[c("labExpId", opt$fields)])
+#print(match(colnames(m), mdata[,"labExpId"]))
 if (length(fields) == 1) {
 condition = factor(sapply(colnames(m), function(x) unique(subset(mdata, labExpId == x)[,opt$fields])))
 }else{print('cannot handle multiple fields yet');q(save='no')}
 
-# create count object for DESeq
-cds = newCountDataSet(na.omit(m), condition)
 
-# normalisation
+#colData = mdata[mdata[,"labExpId"] %in% colnames(m) & mdata[,"view"]=="Alignments",]
+#rownames(colData) <- colData[,"labExpId"]
+#colData = colData[match(colnames(m), rownames(colData)),]
+#dds = DESeqDataSetFromMatrix(countData = m, colData= colData, design=~cell)
+
+
+
+# create count object for DESeq
+cds = newCountDataSet(m, condition)
+
+# normalization
+if(opt$verbose) {cat("Estimating size factors... ")}
 cds = estimateSizeFactors(cds)
+if(opt$verbose) {cat("DONE\n")}
 
 # variance estimation
+if(opt$verbose) {cat("Estimating dispersions... ")}
 cds = estimateDispersions(cds)
+if(opt$verbose) {cat("DONE\n")}
 
 # plot dispersion estimates
 plotDispEsts = function(x) {
@@ -84,7 +94,9 @@ lines(sort(norm_means), fData(x)$disp_pooled[order(norm_means)],  col=2)
 }
 
 # calling differential expression
+if(opt$verbose) {cat("Binomial test... ")}
 res = nbinomTest(cds, levels(condition)[1], levels(condition)[2])
+if(opt$verbose) {cat("DONE\n")}
 
 # plot MA
 plotMA = function(x) {
