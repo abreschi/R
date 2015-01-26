@@ -25,7 +25,8 @@ make_option(c("-f", "--fields"), help="choose the fields you want to use in the 
 make_option(c("-F", "--formula"), help="a formula for the differential expression [default=%default]", default="~."),
 make_option(c("-C", "--cpm"), help="threshold for cpm [default=%default]", type="integer", default=1),
 make_option(c("-s", "--n_samples"), help="minimum number of samples with cpm > \"cpm\" [default=%default]", type="integer", default=2),
-make_option(c("-c", "--coefficient"), help="the coefficient for the comparison [default=last field]", type='integer'),
+make_option(c("-c", "--coefficient"), help="the coefficient for the comparison", type='integer'),
+make_option(c("-n", "--contrast"), help="Numbers comma-separated giving the vector of contrasts. Use instead of coefficients"),
 make_option(c("-o", "--output"), help="additional suffix for output [default=%default]", default='out'),
 make_option(c("-d", "--output_dir"), help="choose the output directory [default=%default]", default="./"),
 make_option(c("-g", "--genes"), help='a file with a list of genes to filter', type='character'),
@@ -91,8 +92,18 @@ mglmAverage = function(object, lev,  prior.count = 0.125, dispersion = 'auto') {
 ## Differential Expression ##
 ##-------------------------##
 
-#plotMA = function(x, fdr) {plot(sort(x$logCPM), x$logFC[order(x$logCPM)]);
-#points(subset(x, FDR<fdr)[c("logCPM","logFC")], col='red')}
+# specify the design to the program
+fields = strsplit(opt$fields, ",")[[1]]
+
+# Report error and quit if contrasts and coefficients are both provided
+if (!is.null(opt$contrast) & !is.null(opt$coefficient)) {
+	cat("ERROR: Provide contrasts OR coefficient!\nABORTED\n")
+	q(save='no')
+} 
+if (is.null(opt$contrast) & is.null(opt$coefficient) & length(fields)>1) {
+	cat("ERROR: Provide contrasts or coefficient!\nABORTED\n")
+	q(save='no')
+}
 
 
 # read the matrix from the command line
@@ -114,21 +125,20 @@ m = m[intersect(rownames(m),fgenes),]
 # read the metadata from the metadata file
 mdata = read.table(opt$metadata, h=T, sep='\t')
 mdata$labExpId <- gsub(",", ".", mdata$labExpId)
-
-
-# specify the design to the program
-fields = strsplit(opt$fields, ",")[[1]]
-mdata = unique(mdata[c("labExpId", fields)])
+mdata = unique(mdata[,c("labExpId", fields)])
+mdata = mdata[match(colnames(m), mdata[,"labExpId"]), c("labExpId", fields)]
 
 
 # ONLY ONE CONDITION
 
-if (length(fields) == 1) {
+#if (length(fields) == 1) {
+if (length(unique(unlist(mdata[fields]))) == 2) {
 #condition = as.factor(sapply(colnames(m), function(x) unique(subset(mdata, labExpId == x)[,fields])))
 condition = factor(mdata[match(colnames(m), mdata[,"labExpId"]), fields])
 
 # create count object for edgeR
 M = DGEList(counts=na.omit(m), group = condition)
+if (opt$verbose) {cat(nrow(M$counts), "/", nrow(m), "did not contain NAs\n\n")}
 
 # This also estimates the library size as the sum of all reads in each sample
 # To change the library size
@@ -143,6 +153,8 @@ M = DGEList(counts=na.omit(m), group = condition)
 cpm.m <- cpm(M)
 # Filter by cpm and number of samples where the gene is expressed
 M <- M[rowSums(cpm.m > opt$cpm) >= opt$n_samples,]
+if(opt$verbose) {cat(nrow(M$counts), "passed the required filters\n\n")}
+
 # Normalize by TMM
 M <- calcNormFactors(M, method="TMM")
 
@@ -165,8 +177,10 @@ for(lev in levels(condition)) {
 # MULTIPLE CONDITIONS
 
 }else{
-fields = strsplit(opt$fields, ",")[[1]]
-design_df = unique(subset(mdata, labExpId %in% colnames(m))[c("labExpId",fields)])
+#fields = strsplit(opt$fields, ",")[[1]]
+#design_df = subset(mdata, labExpId %in% colnames(m))
+design_df = mdata[mdata[,"labExpId"] %in% colnames(m),]
+design_df = droplevels(design_df)
 design_df = design_df[order(design_df$labExpId),]
 design = model.matrix(as.formula(opt$formula), design_df[fields])
 print(colnames(design))
@@ -181,7 +195,7 @@ M = DGEList(counts=na.omit(m))
 # normalisation
 cpm.m <- cpm(M)
 M <- M[rowSums(cpm.m > opt$cpm) >= opt$n_samples,]
-M$samples$lib.size <- colSums(M$counts)
+#M$samples$lib.size <- colSums(M$counts)
 M <- calcNormFactors(M)
 
 # variance estimation
@@ -192,8 +206,8 @@ M <- estimateGLMTagwiseDisp(M, design)
 
 # calling differential expression
 fit <- glmFit(M, design)
-coeff <- ifelse(is.null(opt$coefficient), ncol(fit), opt$coefficient)
-lrt <- glmLRT(fit, coef=coeff)
+if (!is.null(opt$contrast)) {contr <- as.numeric(strsplit(opt$contrast, ",")[[1]])} else {contr=NULL}
+lrt <- glmLRT(fit, coef=opt$coeff, contrast=contr)
 res = topTags(lrt, n=nrow(lrt))$table
 }
 
@@ -215,15 +229,17 @@ pdf(sprintf('%s.pdf', output))
 
 # MA plot
 gp = ggplot(res, aes(x=logCPM, y=logFC))
-gp = gp + geom_point(aes(color=cut(as.double(FDR), breaks=c(0, 0.01, 0.05, 1))))
+gp = gp + geom_point(shape=1, aes(color=cut(as.double(FDR), breaks=c(0, 0.01, 0.05, 1))))
 gp = gp + scale_color_brewer(name="FDR", palette="Set1")
+gp = gp + geom_hline(yintercept=c(2,-2))
 gp
 
 # Volcano plot
 gp = ggplot(res, aes(x=logFC, y=-log10(as.double(FDR))))
-gp = gp + geom_point(aes(color=cut(as.double(FDR), breaks=c(0, 0.01, 0.05, 1))))
+gp = gp + geom_point(shape=1, aes(color=cut(as.double(FDR), breaks=c(0, 0.01, 0.05, 1))))
 gp = gp + scale_color_brewer(name="FDR", palette="Set1")
 gp = gp + scale_y_log10()
+gp = gp + geom_vline(xintercept=c(2,-2))
 gp
 
 # plot dispersion estimates
