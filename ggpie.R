@@ -25,7 +25,7 @@ make_option(c("--header"), default=FALSE,
 	help="the file has header [deafult=%default]"),
 
 make_option(c("-o", "--output"), default="ggpie.out.pdf",
-	help="output file name [deafult=%default]"),
+	help="output file name. Must have a proper image extension (e.g. .pdf, .png) [deafult=%default]"),
 
 make_option(c("-p", "--percentages"), type='integer',
 	help="column with the proportions as percentages"),
