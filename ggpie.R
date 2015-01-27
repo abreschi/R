@@ -82,7 +82,7 @@ palette = as.character(read.table(opt$palette, h=FALSE, comment.char="%")$V1)
 # Compute proportions if counts are given
 if (!is.null(opt$counts)) {
 	counts = colnames(m)[opt$counts]
-	m$perc = m[counts]/sum(m[counts])*100
+	m$perc = m[,counts]/sum(m[,counts])*100
 	opt$percentages = which(colnames(m) == "perc") 
 }
 
