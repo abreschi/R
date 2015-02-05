@@ -87,7 +87,7 @@ if (!is.null(opt$dist)) {
 
 dec = 2
 
-df = round(df, 2)
+df = round(df, 3)
 
 # print the results
 if (opt$output == "stdout") {
