@@ -24,14 +24,16 @@ make_option(c("-v", "--verbose"),action="store_true", default=FALSE,
 	help="if you want detailed output"),
 make_option(c("--log10"), action="store_true", default=FALSE, 
 	help="apply the log10"),
-make_option(c("-p", "--pseudocount"), type="double", default=1e-03, 
+make_option(c("-p", "--pseudocount"), type="double", default=1e-04, 
 	help="specify a pseudocount for the log [default=%default]. NAs are replaced by 0s"),
 make_option(c("-c", "--cor"),
 	help="choose the correlation method"),
 make_option(c("-d", "--dist"), 
 	help="choose the distance method"),
-make_option(c("-o", "--output"), default="dist.out.tsv",
-	help="a name for the output. \"stdout\" to print on standard output")
+make_option(c("-k", "--keep_na"), action="store_true", default=FALSE,
+	help="use this if you want to keep the NAs. By default they are converted to 0. [default=%default]"),
+make_option(c("-o", "--output"), default="stdout",
+	help="a name for the output. \"stdout\" to print on standard output [default=%default]")
 )
 
 parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
@@ -63,8 +65,11 @@ if (opt$verbose) {sprintf("WARNING: column %s is character, so it is removed fro
 if (length(char_cols) == 0) {genes = rownames(m)}
 if (length(char_cols) != 0) {genes = m[,char_cols]; m = m[,-(char_cols)]}
 
+# Replace NAs with 0s if not asked otherwise
+if (!(opt$keep_na)) {m = replace(m, is.na(m), 0)}
+
 # apply the log if required
-if (opt$log10) {m = log10(replace(m, m==0 | is.na(m), 0) + opt$pseudocount)}
+if (opt$log10) {m = log10(m + opt$pseudocount)}
 
 # compute the correlation
 if (!is.null(opt$cor)) {
@@ -79,6 +84,10 @@ if (!is.null(opt$dist)) {
 		df = 1 - abs(cor(m, use="p", method=opt$dist))
 	}
 }
+
+dec = 2
+
+df = round(df, 2)
 
 # print the results
 if (opt$output == "stdout") {
