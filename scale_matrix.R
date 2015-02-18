@@ -30,6 +30,9 @@ make_option(c("-p", "--pseudocount"), type="double", default=1e-04,
 make_option(c("-r", "--row_first"), action="store_true", default=FALSE,
 	help="scale first by rows then by columns"),
 
+make_option(c("-k", "--keep_NA"), action="store_true", default=FALSE,
+	help="NAs are not replaced by zero [default=%default]"),
+
 make_option(c("-C", "--center"), action="store_true", default=FALSE, 
 	help="subtract the mean [default=%default]"),
 
@@ -75,14 +78,17 @@ if (opt$verbose) {sprintf("WARNING: column %s is character, so it is removed fro
 if (length(char_cols) == 0) {genes = rownames(m)}
 if (length(char_cols) != 0) {genes = m[,char_cols]; m = m[,-(char_cols)]}
 
+# replace or not NAs
+if (!opt$keep_NA) {m <- replace(m, is.na(m), 0)}
 
 # apply the log if required
-if (opt$log10) { m = log10(replace(m, is.na(m), 0) + opt$pseudocount) }
+if (opt$log10) {m = log10(m + opt$pseudocount)}
 
 # Read the metadata
 if (!is.null(opt$metadata)) {
 	mdata <- read.table(opt$metadata, h=T, row.names=NULL, sep="\t")
 	mdata$labExpId <- sapply(mdata$labExpId, function(x) gsub(",", ".", x))
+	mdata$labExpId <- sapply(mdata$labExpId, function(x) gsub(":", ".", x))
 	mdata = subset(mdata, labExpId %in% colnames(m))
 }
 
