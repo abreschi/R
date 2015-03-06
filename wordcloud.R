@@ -26,6 +26,12 @@ make_option(c("-w", "--words"), default=1,
 make_option(c("-e", "--weights"), default=2, type="integer",
 	help="Index of the column with weights [default=%default]"),
 
+make_option(c("-C", "--color_by"), type="integer", 
+	help="Index of the factor for coloring"),
+
+make_option(c("-P", "--palette"), default="/users/rg/abreschi/R/palettes/Spectral.11.txt",
+        help='File with colors [default=%default]'),
+
 make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
 	help="if you want more output [default=%default]")
 
@@ -52,9 +58,6 @@ make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
 #
 #make_option(c("-F", "--fill_by"), type='numeric',
 #	help="the column index with the factor to fill by. Leave empty for no factor."),
-#
-#make_option(c("-P", "--palette"), 
-#        help='File with colors for the lines. Leave empty to use even color spacing'),
 #
 #make_option(c("--facet_by"), type='numeric',
 #	help="the column index with the factor to facet by. Leave empty for no factor."),
@@ -91,6 +94,7 @@ if (opt$verbose) {cat("DONE\n\n")}
 # BEGIN    #
 # ======== #
 
+set.seed(123)
 
 # Read data
 if (opt$input == "stdin") {input=file("stdin")} else {input=opt$input}
@@ -101,112 +105,21 @@ df = m
 words = df[,opt$words] 
 freq = df[,opt$weights]
 
+if (!is.null(opt$color_by)) {
+	palette = as.character(read.table(opt$palette, comment.char="%", h=F)$V1)
+	color_by = df[,opt$color_by]
+	colors = palette[as.factor(color_by)]
+}
+
+
 pdf(opt$output, width=7, height=7)
-wordcloud(words, freq, min.freq=-1)
+wordcloud(
+	words = words, 
+	freq = freq, 
+	min.freq = -1,
+	colors = colors,
+	ordered.colors = TRUE
+)
 dev.off()
 
 q(save='no')
-
-# Read facet
-if (!is.null(opt$facet_by)) {facet_formula = as.formula(sprintf("~%s", colnames(df)[opt$facet]))}
-
-# Read columns
-x_col = colnames(df)[opt$x_axis]
-if (!is.null(opt$y_axis)) {y_col = colnames(df)[opt$y_axis]}
-if (!is.null(opt$fill_by)) {F_col = colnames(df)[opt$fill_by]}
-
-# Read palette
-if (!is.null(opt$palette)) {
-	palette = as.character(read.table(opt$palette, h=F, comment.char="%")$V1)
-}
-
-
-#================
-# GGPLOT
-#================
-
-
-theme_set(theme_bw(base_size=20))
-theme_update(
-	axis.text.x=element_text(angle=45, hjust=1, vjust=1),
-	legend.key = element_rect(color='white'),
-	panel.grid.minor = element_blank(),
-	panel.grid.major = element_blank()
-)
-
-# Stat parameters 
-stat = ifelse(is.null(opt$y_axis), "bin", "identity")
-
-stat_params = list(
-	right=TRUE, 
-	include.lowest=TRUE
-)
-
-# specify binwidth
-if (!is.null(opt$binwidth)) {
-	stat_params$binwidth = opt$binwidth
-}
-
-geom_params = list()
-
-if (is.null(opt$fill_by)) {
-	geom_params$fill = opt$fill
-	geom_params$color = opt$color
-}
-
-# specify fill column
-if (!is.null(opt$fill_by)) {
-	mapping <- aes_string(fill=F_col)
-} else {
-	mapping = NULL
-}
-
-# define histogram layer 
-histLayer <- layer(
-    geom = "bar",
-    geom_params = geom_params,
-	position = opt$position,
-	mapping = mapping,
-    stat = stat,
-    stat_params = stat_params
-)
-
-
-# start the plot
-if (is.null(opt$y_axis)) {
-	gp = ggplot(df, aes_string(x = x_col))
-} else {
-	gp = ggplot(df, aes_string(x = x_col, y = y_col))
-}
-
-gp = gp + histLayer
-
-if (!is.character(df[,1])) {
-	avg = mean(df[,1], na.rm=TRUE)
-	med = median(df[,1], na.rm=TRUE)
-	gp = gp + geom_point(aes(x=avg, y=0), size=2)
-	gp = gp + geom_vline(xintercept=med, linetype=2)
-}
-
-# Color scale
-if (!is.null(opt$fill_by)) {
-	if (!is.null(opt$palette)) {
-		gp = gp + scale_fill_manual(values=palette)
-	} else {
-		gp = gp + scale_fill_hue()
-	}
-}
-
-if (!is.null(opt$facet_by)) {
-	gp = gp + facet_wrap(facet_formula)
-}
-
-if (opt$scale_x_log10) {gp = gp + scale_x_log10()}
-if (opt$scale_y_log10) {gp = gp + scale_y_log10()}
-
-gp = gp + labs(y=opt$y_title, x=opt$x_title)
-
-ggsave(opt$output, h=5, w=opt$width, title=opt$output)
-
-# EXIT
-quit(save='no')
