@@ -27,6 +27,9 @@ make_option(c("-c", "--column"), default=1,
 make_option(c("-q", "--quantiles"), default=4, type="integer",
 	help="Number of quantiles [default=%default]"),
 
+make_option(c("-s", "--resolve_breaks"), default=FALSE, action="store_true",
+	help="When breaks are not unique, don't crash but create fewer quantiles [default=%default]"),
+
 make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
 	help="if you want more output [default=%default]")
 
@@ -61,13 +64,21 @@ if (opt$input == "stdin") {
 	m = read.table(opt$input, h=opt$header)
 }
 
+
 # Quantiles
 
 quantile_header = sprintf("quantile_%s", colnames(m)[opt$column])
-m[,quantile_header] = cut_number(m[,opt$column], opt$quantiles)
-
 quant_index_header = sprintf("quant_index_%s", colnames(m)[opt$column])
-m[,quant_index_header] = as.numeric(cut_number(m[,opt$column], opt$quantile))
+
+if (opt$resolve_breaks) {
+	breaks <- c(unique(quantile(m[,opt$column], probs=seq(0,1,1/opt$quantiles), na.rm=T)))
+	m[,quantile_header] = cut(m[,opt$column], breaks, include.lowest=TRUE)
+	m[,quant_index_header] = match(m[,quantile_header], levels(m[,quantile_header]))
+} else {
+	m[,quantile_header] = cut_number(m[,opt$column], opt$quantiles)
+	m[,quant_index_header] = as.numeric(cut_number(m[,opt$column], opt$quantile))
+}
+
 
 # Print output
 
