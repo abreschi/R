@@ -24,6 +24,9 @@ make_option(c("-k", "--cluster"), type='integer',
 make_option(c("-f", "--factor"), type='integer',
 	help="Index of the column with the factor"),
 
+make_option(c("-d", "--is_discrete"), default=FALSE, action="store_true",
+	help="The factor is a discrete class. [default=%default]"),
+
 make_option(c("-p", "--palette"), 
 	help="File with custom palette. If no palette is given, the ggplot default is used."),
 
@@ -127,10 +130,17 @@ for (i in seq(gridRows)) {
 
 # Aggregate the attribute by cluster
 factor_col = colnames(m)[opt$factor]
-formula_agg = as.formula(sprintf("%s~id", factor_col))
-m_agg = aggregate(formula_agg, m, median, na.rm=TRUE)
-# Merge the attribute with the hex grid
-df = merge(hex, m_agg)
+
+
+if (!opt$is_discrete) {
+	formula_agg = as.formula(sprintf("%s~id", factor_col))
+	m_agg = aggregate(formula_agg, m, median, na.rm=TRUE)
+	# Merge the attribute with the hex grid
+	df = merge(hex, m_agg)
+} else {
+	df = merge(hex, m)
+}
+
 
 
 ########
@@ -141,7 +151,11 @@ df = merge(hex, m_agg)
 gp = ggplot(df, aes(x, y)) + geom_polygon(aes_string(group="id", fill=factor_col), color='black')
 gp = gp + labs(title=opt$title, x=NULL, y=NULL)
 if (!is.null(opt$palette)) {
-	gp = gp + scale_fill_gradientn(colours=palette)
+	if (opt$is_discrete) {
+		gp = gp + scale_fill_manual(values=palette)
+	} else {
+		gp = gp + scale_fill_gradientn(colours=palette)
+	}
 }
 
 ggsave(opt$output, h=5, w=8)
