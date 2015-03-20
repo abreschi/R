@@ -78,10 +78,10 @@ stats = read.table(opt$statistics, h=T)
 # Order them to be in the same order as the input matrix row names
 stats = stats[match(stats[,1], rownames(m)),]
 
-# Compute the variance for each row
-#variance = apply(m, 1, var)
 # Normalize the variance by the maximum variance
 variancen = stats[,2]/max(stats[,2], na.rm=T)
+print(head(variancen))
+names(variancen) <- stats[,1]
 
 # Function to compute the alpha_2 measure
 alpha_2 = function(lambda, S) {
@@ -102,6 +102,7 @@ for (var_t in var_thresholds) {
 
 	# Obtain a matrix of lambdas (sdev) for each permutation
 	# Rows are the components and columns are the iterations
+	set.seed(123)
 	lambda = replicate(B, prcomp(apply(m_t, 1, sample), center=FALSE, scale.=FALSE)$sdev) 
 	# Count how many times the stdev for each component in the permutation is lower than the observed one
 	lambda_counts = rowSums(apply(lambda, 2, function(x) pca1$sdev>=x))
@@ -123,18 +124,20 @@ for (var_t in var_thresholds) {
 # OUTPUT
 ###############
 
+selected = names(which(variancen >= var_thresholds[which.max(proj_scores)]))
+write.table(selected, sprintf("%s.txt", opt$output), quote=FALSE, col.names=FALSE, row.names=FALSE, sep='\t')
 
 # Plot the projection score as a function of the variance
 df = data.frame(var_thresholds, proj_scores)
+print(head(df))
 
-theme_set(theme_bw(base_size=16))
+theme_set(theme_bw(base_size=18))
 
-gp = ggplot(df, aes(x=var_thresholds, y=proj_scores)) + geom_point(size=3) + geom_line()
+gp = ggplot(df, aes(x=as.numeric(var_thresholds), y=proj_scores)) + geom_point(size=3) + geom_line()
+gp = gp + labs(x="Thresholds (fraction of max)")
 
-ggsave(sprintf("%s.pdf", opt$output), h=7, w=7)
+ggsave(sprintf("%s.pdf", opt$output), h=5, w=7)
 
-selected = names(which(variancen >= var_thresholds[which.max(proj_scores)]))
 
-write.table(selected, sprintf("%s.txt", opt$output), quote=FALSE, col.names=FALSE, row.names=FALSE, sep='\t')
 
 
