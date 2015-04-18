@@ -38,7 +38,7 @@ make_option(c("--scale_y_log10"), action="store_true", default=FALSE,
 make_option(c("--y_title"), type="character", default="count",
 	help="Title for the y axis [default=%default]"),
 
-make_option(c("--x_title"), type="character", default="",
+make_option(c("--x_title"), type="character", default=NULL,
 	help="Title for the x axis [default=%default]"),
 
 make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
@@ -94,7 +94,7 @@ if (opt$verbose) {cat("DONE\n\n")}
 
 # Read data
 if (opt$input == "stdin") {input=file("stdin")} else {input=opt$input}
-m = read.table(input, h=opt$header) 
+m = read.table(input, sep="\t", h=opt$header) 
 
 df = m
 
@@ -195,9 +195,11 @@ if (!is.null(opt$facet_by)) {
 if (opt$scale_x_log10) {gp = gp + scale_x_log10()}
 if (opt$scale_y_log10) {gp = gp + scale_y_log10()}
 
-gp = gp + labs(y=opt$y_title, x=opt$x_title)
+if (!is.null(opt$x_title)) {gp = gp + labs(x=opt$x_title)}
 
-ggsave(opt$output, h=5, w=opt$width)
+gp = gp + labs(y=opt$y_title)
+
+ggsave(opt$output, h=5, w=opt$width, title=opt$output)
 
 # EXIT
 quit(save='no')
