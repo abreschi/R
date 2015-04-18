@@ -408,7 +408,7 @@ p1 = p1 + geom_tile(aes(fill=value))
 p1 = p1 + theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1))
 p1 = p1 + scale_x_discrete(expand=c(0,0), limits=col_limits, labels=col_labels)
 p1 = p1 + scale_y_discrete(expand=c(0,0), limits=row_limits, labels=row_labels)
-#p1 = p1 + scale_fill_gradientn(colours=matrix_palette, breaks=c(-2,0,2,4))
+#p1 = p1 + scale_fill_gradientn(colours=matrix_palette, limits=c(-2,3))
 p1 = p1 + scale_fill_gradientn(colours=matrix_palette)
 p1 = p1 + theme(plot.margin=unit(c(0.00, 0.00, 0.01, 0.01),"inch"))
 p1 = p1 + labs(x=NULL, y=NULL)
@@ -417,6 +417,8 @@ p1 = p1 + guides(fill=guide_colourbar(
 	direction="horizontal", 
 	title.hjust=0, 
 	title=opt$matrix_legend_title
+#	draw.ulim=FALSE,
+#	draw.llim=FALSE
 ))
 #if (!is.null(opt$matrix_legend_breaks)) {
 #	p1 = p1 + guides(fill=guide_colourbar(breaks=breaks))
@@ -539,7 +541,7 @@ if (!is.null(opt$colSide_by)){
 			y = matrix_vp_y + matrix_vp_h + 0.25*(i-1),
 			x = matrix_vp_x + row_labels_inches,
 			h = 0.25,
-			w = max(row_labels_inches, as.numeric(strwidth(colSide_by, "inch"))),
+			w = max(row_labels_inches, as.numeric(strwidth(colSide_by, "inch") * (base_size/12) )),
 			default.units = "inch",
 			just = c("right", "bottom")
 		)
@@ -563,7 +565,7 @@ if (!is.null(opt$rowSide_by)){
 		RowSide_label_vps[[i]] = viewport(
 			y = matrix_vp_y + col_labels_inches,
 			x = matrix_vp_x + matrix_vp_w + 0.25*(i-1),
-			h = max(col_labels_inches, as.numeric(strwidth(rowSide_by, "inch"))),
+			h = max(col_labels_inches, as.numeric(strwidth(rowSide_by, "inch") * (base_size/12) )),
 			w = 0.25,
 			default.units = "inch",
 			just = c("left", "top")
