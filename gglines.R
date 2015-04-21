@@ -45,8 +45,14 @@ make_option(c("--y_title"), default="norm_read_density",
 make_option(c("--x_title"), default="position", 
 	help="title for the x-axis [default=%default]"),
 
+make_option(c("--scale_x_log10"), action="store_true", 
+	help="Change the x axis to log10 [default=%default]"),
+
 make_option(c("-P", "--palette"), 
 	help='File with colors for the lines. Leave empty to use even color spacing'),
+
+make_option(c("-H", "--height"), default=5,
+	help="Height of the plot in inches [default=%default]"),
 
 make_option(c("-v", "--verbose"), action='store_true', default=FALSE,
 	help="Verbose output [default=%default]")
@@ -133,8 +139,13 @@ if (!is.null(opt$vertical_lines)) {
 	gp = gp + geom_vline(xintercept=vertical_lines, color="grey", linetype="longdash")
 }
 
+# Scale x log10
+if (opt$scale_x_log10) {
+	gp = gp + scale_x_log10()
+}
 
-ggsave(opt$output, h=5, w=7)
+
+ggsave(opt$output, h=opt$height, w=7)
 
 # EXIT
 quit(save='no')
