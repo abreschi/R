@@ -19,6 +19,9 @@ make_option(c("-o", "--output"), default="profile.pdf",
 make_option(c("--header"), action="store_true", default=FALSE, 
 	help="The file has header [default=%default]"),
 
+make_option(c("--group"), type="numeric",
+	help="Column index with the group factor [default=%default]"),
+
 make_option(c("-c", "--color_by"), type='numeric',
 	help="Column index with the color factor. Leave empty for no color"),
 
@@ -33,6 +36,9 @@ make_option(c("-y", "--y_col"), type='numeric', default=2,
 
 make_option(c("-V", "--vertical_lines"), type='character', 
 	help="specify where you want the vertical lines [default=%default]"),
+
+make_option(c("-a", "--alpha"), type="numeric", default=1,
+	help="Set transparency [default=%default]"),
 
 #make_option(c("-f", "--facet"), type="integer", help="column index to facet"),
 
@@ -117,13 +123,64 @@ theme_update(
 
 x = colnames(m)[opt$x_col]
 y = colnames(m)[opt$y_col]
-if (!is.null(opt$color_by)) {color_by = colnames(m)[opt$color_by]} else {color_by=NULL}
-if (!is.null(opt$linetype_by)) {linetype_by = colnames(m)[opt$linetype_by]} else {linetype_by=NULL}
-alpha = 1
+
+alpha = opt$alpha
+
+# -------------------------
+# geom_params and mapping
+# -------------------------
+
+geom_params = list()
+mapping = list()
+
+
+# >> color <<
+
+if (is.null(opt$color_by)) {
+	geom_params$color = "black"
+} else {
+	mapping = modifyList(mapping, aes_string(color=colnames(m)[opt$color_by]))
+}
+
+
+# >> linetype <<
+
+if (is.null(opt$linetype_by)) {
+	geom_params$linetype = 1
+} else {
+	mapping = modifyList(mapping, aes_string(linetype=colnames(m)[opt$linetype_by]))
+}
+
+
+# >> group <<
+
+if (!is.null(opt$group)) {
+	mapping = modifyList(mapping, aes_string(group=colnames(m)[opt$group]))
+}
+
+geom_params$alpha = alpha
+geom_params$size = 1
+
+class(mapping) <- "uneval"
+
+# -----------
+# lineLayer
+# -----------
+
+lineLayer <- layer(
+	geom = "line",
+	geom_params = geom_params,
+	mapping = mapping
+)
+
 
 # plot 
 gp = ggplot(m, aes_string(x=x, y=y)) 
-gp = gp + geom_line(aes_string(color=color_by, linetype=linetype_by), alpha=alpha, size=1)
+
+# Add line layer
+gp = gp + lineLayer
+
+# Add the labels
 gp = gp + labs(title=opt$title, y=opt$y_title, x=opt$x_title)
 
 # Color scale
