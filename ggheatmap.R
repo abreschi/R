@@ -91,6 +91,9 @@ make_option(c("--matrix_palette"), default="/users/rg/abreschi/R/palettes/terrai
 make_option(c("--matrix_legend_title"), default="value",
 	help="Title for matrix color scale [default=%default]"),
 
+make_option(c("--matrix_fill_limits"), 
+	help="Specify limits for the fill scale, e.g. \"\\-1,1\". Escape character for negative numbers [default=%default]"),
+
 #make_option(c("--matrix_legend_breaks"),
 #	help="Comma-separated breaks for the color scale"),
 #
@@ -401,15 +404,20 @@ col_labels_inches = max(strwidth(col_labels, units="in", cex=base_size*(as.numer
 #if (!is.null(opt$matrix_legend_breaks)) {
 #	breaks = as.numeric(strsplit(opt$matrix_legend_breaks, ",")[[1]])
 #}
-	
+
+matrix_fill_limits = NULL	
+if (!is.null(opt$matrix_fill_limits)) {
+	opt$matrix_fill_limits = gsub("\\", "", opt$matrix_fill_limits, fixed=TRUE)
+	matrix_fill_limits = as.numeric(strsplit(opt$matrix_fill_limits, ",")[[1]])
+} 
 
 p1 = ggplot(df, aes(x=Var2, y=Var1))
 p1 = p1 + geom_tile(aes(fill=value))
 p1 = p1 + theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1))
 p1 = p1 + scale_x_discrete(expand=c(0,0), limits=col_limits, labels=col_labels)
 p1 = p1 + scale_y_discrete(expand=c(0,0), limits=row_limits, labels=row_labels)
-#p1 = p1 + scale_fill_gradientn(colours=matrix_palette, limits=c(-2,3))
-p1 = p1 + scale_fill_gradientn(colours=matrix_palette)
+p1 = p1 + scale_fill_gradientn(colours=matrix_palette, limits=matrix_fill_limits)
+#p1 = p1 + scale_fill_gradientn(colours=matrix_palette)
 p1 = p1 + theme(plot.margin=unit(c(0.00, 0.00, 0.01, 0.01),"inch"))
 p1 = p1 + labs(x=NULL, y=NULL)
 p1 = p1 + guides(fill=guide_colourbar(
