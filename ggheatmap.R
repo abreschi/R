@@ -454,6 +454,10 @@ if (!is.null(opt$colSide_by)) {
 		}
 		ColSide = ColSide + theme(plot.margin=unit(c(0.00, 0.00, 0.00, 0.01),"inch"))
 		ColSide = ColSide + labs(x=NULL, y=NULL)
+		ColSide = ColSide + theme(
+			legend.text=element_text(size=0.9*base_size),
+			legend.key.size=unit(0.9*base_size, "points")
+		)
 		ColSide_legends[[i]] = g_legend(ColSide)
 		ColSide = ColSide + theme(legend.position="none")
 		ColSides[[i]] = ColSide; i=i+1;
@@ -487,6 +491,10 @@ if (!is.null(opt$rowSide_by)) {
 		RowSide = RowSide + theme(plot.margin=unit(c(0.00, 0.00, 0.00, 0.01),"inch"))
 		RowSide = RowSide + labs(x=NULL, y=NULL)
 		RowSide = RowSide + coord_flip()
+		RowSide = RowSide + theme(
+			legend.text=element_text(size=0.9*base_size),
+			legend.key.size=unit(0.9*base_size, "points")
+		)
 		RowSide_legends[[i]] = g_legend(RowSide)
 		RowSide = RowSide + theme(legend.position="none")
 		RowSides[[i]] = RowSide; i=i+1;
