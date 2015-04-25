@@ -112,6 +112,8 @@ if (!is.null(opt$palette)) {
 }
 
 
+df[,x_col] <- gsub("\\\\n", "\n", df[,x_col])
+
 #================
 # GGPLOT
 #================
@@ -172,9 +174,9 @@ if (is.null(opt$y_axis)) {
 
 gp = gp + histLayer
 
-if (!is.character(df[,1])) {
-	avg = mean(df[,1], na.rm=TRUE)
-	med = median(df[,1], na.rm=TRUE)
+if (!is.character(df[,x_col])) {
+	avg = mean(df[,x_col], na.rm=TRUE)
+	med = median(df[,x_col], na.rm=TRUE)
 	gp = gp + geom_point(aes(x=avg, y=0), size=2)
 	gp = gp + geom_vline(xintercept=med, linetype=2)
 }
