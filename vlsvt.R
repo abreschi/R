@@ -312,7 +312,7 @@ if (!is.null(opt$metadata)) {
 	mdata_col = unique(c(opt$merge_mdata_on, strsplit(opt$factors, "[+*:]")[[1]]))
 	mdata = unique(mdata[,mdata_col])
 	# Intersect mdata id with header of matrix
-	print(colnames(m)[-(1:2)] %in% mdata[,opt$merge_mdata_on])
+#	print(colnames(m)[-(1:2)] %in% mdata[,opt$merge_mdata_on])
 	if (!all(colnames(m)[-(1:2)] %in% mdata[,opt$merge_mdata_on])) {
 		cat("\n\tERROR: Some column names of the matrix are missing in the metadata\n\n")
 		q(save='no')
@@ -325,7 +325,7 @@ if (!is.null(opt$metadata)) {
 	
 	# Make the group list
 	groups = lapply(split(mdata, mdata[,opt$factors]), function(x) x[,opt$merge_mdata_on])
-	print(groups)
+#	print(groups)
 
 	# Compute variance
 	res = varGpGE.comp(m, groups)
