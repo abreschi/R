@@ -303,21 +303,29 @@ varGpGE.comp <- function(data,groups, min.iso2.RPKM=opt$min.iso2.RPKM, rescale=T
 
 # Read matrix
 if (opt$input_matrix == "stdin") {inF=file("stdin")} else {inF=opt$input_matrix}
-m = read.table(inF, h=T)
+m = read.table(inF, h=T, sep="\t")
 
 # Read the metadata
 if (!is.null(opt$metadata)) {
-	mdata = read.table(opt$metadata, h=T, sep="\t")
+	mdata = read.table(opt$metadata, h=T, sep="\t", quote=NULL)
 	mdata[,opt$merge_mdata_on] = gsub(",", ".", mdata[,opt$merge_mdata_on])
 	mdata_col = unique(c(opt$merge_mdata_on, strsplit(opt$factors, "[+*:]")[[1]]))
 	mdata = unique(mdata[,mdata_col])
+	# Intersect mdata id with header of matrix
+	print(colnames(m)[-(1:2)] %in% mdata[,opt$merge_mdata_on])
+	if (!all(colnames(m)[-(1:2)] %in% mdata[,opt$merge_mdata_on])) {
+		cat("\n\tERROR: Some column names of the matrix are missing in the metadata\n\n")
+		q(save='no')
+	}
+	mdata = mdata[mdata[,opt$merge_mdata_on] %in% colnames(m)[-(1:2)],]
 	if (opt$verbose) {
 	        cat("Metadata sample:\n")
 	        print(head(mdata))
 	}
 	
 	# Make the group list
-	groups = lapply(split(mdata, mdata[,opt$factors]), function(x) x[,"labExpId"])
+	groups = lapply(split(mdata, mdata[,opt$factors]), function(x) x[,opt$merge_mdata_on])
+	print(groups)
 
 	# Compute variance
 	res = varGpGE.comp(m, groups)
