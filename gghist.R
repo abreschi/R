@@ -111,8 +111,10 @@ if (!is.null(opt$palette)) {
 	palette = as.character(read.table(opt$palette, h=F, comment.char="%")$V1)
 }
 
-
-df[,x_col] <- gsub("\\\\n", "\n", df[,x_col])
+# Correct newlines if column is character
+if (is.character(df[,x_col])) {
+	df[,x_col] <- gsub("\\\\n", "\n", df[,x_col])
+}
 
 #================
 # GGPLOT
