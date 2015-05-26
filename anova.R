@@ -16,6 +16,9 @@ make_option(c("-i", "--input"), default="stdin",
 make_option(c("-o", "--output"), default="anova.out.tsv",
 	help="Output file name. Can be stdout [default=%default]"),
 
+make_option(c("-r", "--replace_NA"), default=FALSE, action="store_true",
+	help="Replace NA with 0 [default=%default]"),
+
 make_option(c("-m", "--metadata"),
 	help="Matrix with the metadata"),
 
@@ -23,7 +26,7 @@ make_option(c("--merge_mdata_on"), default="labExpId",
 	help="Metadata field which contains the column names of the input matrix [default=%default]"),
 
 make_option(c("-F", "--factors"), 
-	help="Factors for anova, can also be interactions, e.g. value~cell+organism"),
+	help="Factors for anova (right part of the formula), can also be interactions, e.g. value~cell+organism"),
 
 make_option(c("--p_adj"), default="BH",
 	help="Method for correcting the pvalue for multiple testing [default=%default]"),
@@ -52,23 +55,33 @@ suppressPackageStartupMessages(library("reshape2"))
 # BEGIN
 ##############
 
-
+# Read input
+#input = ifelse(opt$input == "stdin", file("stdin"), opt$input) # why is this line never working?
 if (opt$input == "stdin") {
-	m = read.table(file("stdin"), h=T)
+        input = file("stdin")
 } else {
-	m = read.table(opt$input, h=T)
+        input = opt$input
+}
+m = read.table(input, h=T)
+if (opt$verbose) {
+	cat("Data sample:\n")
+	print(head(m))
 }
 
-if (opt$log10) {
-	m = log10(m + opt$pseudocount)
-}
+# Process the data according to the user
+if (opt$replace_NA) {m = replace(m, is.na(m), 0)}
+if (opt$log10) {m = log10(m + opt$pseudocount)}
 
 
 # Read the metadata
 mdata = read.table(opt$metadata, h=T, sep="\t")
-mdata[,opt$merge_mdata_on] = gsub(",", ".", mdata[,opt$merge_mdata_on])
+mdata[,opt$merge_mdata_on] = gsub("[,:]", ".", mdata[,opt$merge_mdata_on])
 mdata_col = unique(c(opt$merge_mdata_on, strsplit(opt$factors, "[+*:]")[[1]]))
 mdata = unique(mdata[,mdata_col])
+if (opt$verbose) {
+	cat("Metadata sample:\n")
+	print(head(mdata))
+}
 
 # Read the formula
 F = as.formula(sprintf("value~%s", opt$factors))
@@ -78,8 +91,9 @@ F = as.formula(sprintf("value~%s", opt$factors))
 # Apply anova on each gene
 res = t(sapply(1:nrow(m), 
 	function(i) {
-		mm = suppressWarnings(melt(m[i,]))
+		mm = suppressMessages(melt(m[i,]))
 		tmp = merge(mm, mdata, by.x="variable", by.y=opt$merge_mdata_on);
+#		print(tmp)
 		aov_res = anova(lm(F, tmp));
 		return(unlist(aov_res[,-1]))
 	}
@@ -91,7 +105,6 @@ labels = apply(expand.grid(rownames(aov_res), c("SS", "MeanSq", "F", "pvalue")),
 
 res = data.frame(res)
 colnames(res) <- labels
-rownames(res) <- rownames(m)
 
 
 # Adjust pvalue
@@ -99,17 +112,14 @@ for (i in grep("pvalue", colnames(res))) {
 	adj_header = paste(colnames(res)[i], "adj", sep=".")
 	res[,adj_header] = p.adjust(res[,i], method=opt$p_adj)
 }
-	
-	
+
+res = sapply(res, round, 4)
+rownames(res) <- rownames(m)
+
 
 # OUTPUT
 
-if (opt$output == "stdout") { 
-	output = ""
-} else {
-	output = opt$output
-}
-
+output = ifelse(opt$output == "stdout", "", opt$output)
 write.table(res, output, quote=FALSE, col.names=TRUE, row.names=TRUE, sep='\t')
 
 q(save='no')
