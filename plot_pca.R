@@ -30,8 +30,15 @@ make_option(c("-i", "--input_matrix"), help="the matrix you want to analyze. Can
 make_option(c("-l", "--log10"), action="store_true", default=FALSE, help="apply the log [default=FALSE]"),
 make_option(c("-p", "--pseudocount"), type="double", help="specify a pseudocount for the log [default=%default]", default=1e-04),
 make_option(c("-m", "--metadata"), help="A list of tsv files with metadata on matrix experiment.\n\t\tThey must be in the format 'file1.tsv,file2.tsv' and contain a key column named 'labExpId'. Can be omitted"),
+
+make_option(c("--merge_mdata_on"), default="labExpId",
+	help="[default=%default]"),
+
 #make_option(c("-o", "--output"), help="additional info you want to put in the output file name", default="out"),
 make_option(c("-c", "--color_by"), help="choose the fields in the metadata you want to color by", type='character'),
+
+make_option(c("--sort_color"), type='character', 
+	help="A field for sorting colors. Can be omitted [default=%default]"),
 
 make_option(c("-s", "--shape_by"), help="choose the fields in the metadata you want to shape by", type='character', default=NA),
 
@@ -53,6 +60,12 @@ make_option(c("--print_lambdas"), action="store_true", default=FALSE,
 make_option(c("--palette"), default="/users/rg/abreschi/R/palettes/cbbPalette1.15.txt",
 	help="File with the color palette [default=%default]"),
 
+make_option(c("--shapes"), 
+	help="File with the shapes [default=%default]"),
+
+make_option(c("-L", "--labels"), default=NULL, type="character",
+	help="The metadata field with the labels [default=%default]"),
+
 make_option(c("-H", "--height"), default=7,
 	help="Height of the plot in inches [default=%default]"),
 
@@ -60,7 +73,7 @@ make_option(c("-W", "--width"), default=7,
 	help="Width of the plot in inches [default=%default]"),
 
 make_option(c("-o", "--output"), default="pca.out",
-	help="output file name"),
+	help="output file name [default=%default]"),
 
 make_option(c("-v", "--verbose"), action='store_true', default=FALSE,
 	help="verbose output [default=%default]")
@@ -86,6 +99,18 @@ if (opt$input_matrix == "stdin") {
 
 # Read the color palette
 my_palette = read.table(opt$palette, h=F, comment.char="%")$V1
+
+# Read the color ordering
+if (is.null(opt$sort_color)) {
+	sort_color=NULL
+}else{
+	sort_color = strsplit(opt$sort_color, ",")[[1]]
+}
+
+# Read the shapes
+if (!is.null(opt$shapes)) {
+	my_shapes = read.table(opt$shapes, h=F, comment.char="%")$V1
+}
 
 # remove potential gene id columns
 char_cols <- which(sapply(m, class) == 'character')
@@ -118,8 +143,8 @@ if (!is.null(opt$metadata)){
 	metadata = strsplit(opt$metadata, ",")[[1]]
 	for (i in seq_along(metadata)) {
 		mdata = read.table(metadata[i], h=T, sep="\t", row.names=NULL);
-		if ('labExpId' %in% colnames(mdata)) {
-			mdata$labExpId <- gsub(",", ".", mdata[,"labExpId"])
+		if (opt$merge_mdata_on %in% colnames(mdata)) {
+			mdata[,opt$merge_mdata_on] <- gsub("[,-]", ".", mdata[,opt$merge_mdata_on])
 		}
 		if ( i==1 ) {
 			new_mdata = mdata
@@ -131,7 +156,7 @@ if (!is.null(opt$metadata)){
 	cat('append metadata...')
 	
 	df = merge(as.data.frame(m_pca$x),
-	unique(new_mdata[c(color_by, shape_by, 'labExpId')]), by.x='row.names', by.y='labExpId', all.x=T)
+	unique(new_mdata[c(color_by, shape_by, opt$merge_mdata_on, opt$labels)]), by.x='row.names', by.y=opt$merge_mdata_on, all.x=T)
 }else{
 	df = as.data.frame(m_pca$x)
 }
@@ -159,7 +184,10 @@ if (opt$print_loadings) {
 
 # -- lambdas --
 if (opt$print_lambdas) {
-	write.table(m_pca$sdev, sprintf("%s.lambdas.tsv", output_name), quote=F, sep="\t")
+	perc = round(100*m_pca$sdev/sum(m_pca$sdev), 2)
+	variances = round(m_pca$sdev^2/sum(m_pca$sdev^2)*100, 2)
+	out_df = data.frame(lambda=m_pca$sdev, perc=perc, var_perc=variances)
+	write.table(out_df, sprintf("%s.lambdas.tsv", output_name), quote=F, sep="\t")
 }
 
 # Read the required components 
@@ -176,10 +204,12 @@ variances = round(m_pca$sdev^2/sum(m_pca$sdev^2)*100, 2)
 
 # plot parameters
 pts = 5
-#shapes = c(16, 15, 0, 14:1, 18, 17)
-shapes = c(15, 0)
+
+l_col = opt$labels
+
 theme_set(theme_bw(base_size=16))
 theme_update(legend.key = element_blank())
+
 
 
 # Open device for plotting
@@ -188,7 +218,14 @@ pdf(sprintf("%s.pdf", output_name), w=opt$width, h=opt$height)
 if (length(prinComp) == 2){
 	# plotting...
 	gp = ggplot(df, aes_string(x=prinComp[1],y=prinComp[2]));
-	if (!is.null(opt$color_by)) {gp_color_by=interaction(df[color_by])} else {gp_color_by=NULL}
+	if (!is.null(opt$color_by)) {
+		gp_color_by=interaction(df[color_by])
+		if (!is.null(opt$sort_color)) {
+			gp_color_by = factor(gp_color_by, levels=sort_color)
+		}
+	} else {
+		gp_color_by=NULL
+	}
 	if (!is.na(opt$shape_by)) {gp_shape_by=interaction(df[shape_by]);
 	gp_shape_by <- factor(gp_shape_by, levels=sort(levels(gp_shape_by)))} else {gp_shape_by=NULL}
 	gp = gp + geom_point(aes(col=gp_color_by, shape=gp_shape_by), size=pts);
@@ -196,9 +233,14 @@ if (length(prinComp) == 2){
 	gp = gp + labs(x=sprintf('%s (%s%%)', prinComp[1], variances[prinComp_i[1]]));
 	gp = gp + labs(y=sprintf('%s (%s%%)', prinComp[2], variances[prinComp_i[2]]));
 	gp = gp + scale_color_manual(name=opt$color_by, values=my_palette)
-	gp = gp + scale_shape_manual(name='Sample', values=shapes);
+	if (!is.null(opt$shapes)) {
+		gp = gp + scale_shape_manual(name=opt$shape_by, values=my_shapes);
+	}
 	if (opt$no_legend) {
 		gp = gp + guides(shape=FALSE, color=FALSE)
+	}
+	if (!is.null(opt$labels)) {
+		gp = gp + geom_text(aes_string(label=l_col), size=pts)
 	}
 	gp
 } 
@@ -212,25 +254,6 @@ if (length(prinComp) == 2){
 #
 # --------------------
 
-#print(head(df))
-
-#if (length(prinComp) == 3) {
-#
-#	suppressPackageStartupMessages(library(ggtern))
-#
-#	gp = ggtern(df, aes_string(x=prinComp[1], y=prinComp[2], z=prinComp[3]));
-#	gp = gp + geom_point()
-##	if (!is.na(opt$color_by)) {gp_color_by=interaction(df[color_by])} else {gp_color_by=NULL}
-##	if (!is.na(opt$shape_by)) {gp_shape_by=interaction(df[shape_by]);
-##	gp_shape_by <- factor(gp_shape_by, levels=sort(levels(gp_shape_by)))} else {gp_shape_by=NULL}
-##	gp = gp + geom_point(aes(col=gp_color_by, shape=gp_shape_by), size=pts);
-##	gp = gp + labs(title="");
-##	gp = gp + labs(x=sprintf('%s (%s%%)', prinComp[1], variances[prinComp_i[1]]));
-##	gp = gp + labs(y=sprintf('%s (%s%%)', prinComp[2], variances[prinComp_i[2]]));
-##	gp = gp + scale_color_manual(name=opt$color_by, values=my_palette)
-##	gp = gp + scale_shape_manual(name='Sample', values=shapes);
-#	gp
-##}
 
 if (length(prinComp) == 3) {
 
@@ -240,7 +263,7 @@ par(xpd=NA, omi=c(0.5, 0.5, 0.5, 1.0))
 
 if (!is.na(opt$color_by)) {gp_color=my_palette[interaction(df[color_by])]} else {gp_color="black"}
 if (!is.na(opt$shape_by)) {gp_shape_by=interaction(df[shape_by]);
-gp_shape_by <- factor(gp_shape_by, levels=sort(intersect(levels(gp_shape_by), gp_shape_by))); gp_shape=shapes[gp_shape_by]} else {gp_shape_by=NULL}
+gp_shape_by <- factor(gp_shape_by, levels=sort(intersect(levels(gp_shape_by), gp_shape_by))); gp_shape=my_shapes[gp_shape_by]} else {gp_shape_by=NULL}
 
 plot3d = scatterplot3d(df[prinComp], 
 	color = gp_color,
@@ -273,7 +296,7 @@ if (!is.na(opt$shape_by)) {
 		y = 6, 
 #		y = 7.2,
 		legend = levels(gp_shape_by), 
-		pch = shapes[seq_along(levels(gp_shape_by))]
+		pch = my_shapes[seq_along(levels(gp_shape_by))]
 		)
 #	legend(-log(abs(min(df[prinComp[1]])))+1.5,7.2,levels(gp_shape_by), 
 #	pch=shapes[seq_along(levels(gp_shape_by))])
