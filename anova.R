@@ -34,7 +34,7 @@ make_option(c("--p_adj"), default="BH",
 make_option(c("-l", "--log10"), action="store_true", default=FALSE,
 	help="Apply the log10 to the whole matrix as pre-processing step [default=%default]"),	
 
-make_option(c("-p", "--pseudocount"), default=0.001,
+make_option(c("-p", "--pseudocount"), default=0.01,
 	help="Pseudocount to add when applying the log [default=%default]"),
 
 make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
@@ -75,7 +75,7 @@ if (opt$log10) {m = log10(m + opt$pseudocount)}
 
 # Read the metadata
 mdata = read.table(opt$metadata, h=T, sep="\t")
-mdata[,opt$merge_mdata_on] = gsub("[,:]", ".", mdata[,opt$merge_mdata_on])
+mdata[,opt$merge_mdata_on] = gsub("[,:-]", ".", mdata[,opt$merge_mdata_on])
 mdata_col = unique(c(opt$merge_mdata_on, strsplit(opt$factors, "[+*:]")[[1]]))
 mdata = unique(mdata[,mdata_col])
 if (opt$verbose) {
