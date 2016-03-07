@@ -7,19 +7,9 @@ opt$log10 = FALSE
 opt$pseudocount = 1e-04
 opt$row_as_variables = FALSE
 
-##------------
-## LIBRARIES
-##------------ 
-suppressPackageStartupMessages(library("reshape"))
-suppressPackageStartupMessages(library("ggplot2"))
 suppressPackageStartupMessages(library("optparse"))
 
 options(stringsAsFactors=F)
-#custom_palette <- rgb(matrix(c(0,0,0,0,73,73,0,146,146,255,109,182,255,182,119,73,0,146,0,109,219,182,109,
-#255,109,182,255,182,219,255,146,0,0,146,73,0,219,209,0,36,255,36,255,255,109), ncol=3, byrow=T), max=255)
-#cbbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#000000", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
-
-#my_palette <- custom_palette
 
 ##################
 # OPTION PARSING
@@ -57,14 +47,24 @@ make_option(c("--print_loadings"), action="store_true", default=FALSE,
 make_option(c("--print_lambdas"), action="store_true", default=FALSE,
 	help="Output the resulting lambdas (stdev) as a separate file with the extension lambdas.tsv [default=%default]"),
 
+make_option(c("--biplot"), default=FALSE, action="store_true",
+	help="If active, the factor of the color is used as grouping factor.
+	Centroids are computed and the first <top> loadings are plotted wrt to the two specified components [default=%default]"),
+
 make_option(c("--palette"), default="/users/rg/abreschi/R/palettes/cbbPalette1.15.txt",
 	help="File with the color palette [default=%default]"),
+
+make_option(c("--border"), default=FALSE, action="store_true",
+	help="Black border to dots [default=%default]"),
 
 make_option(c("--shapes"), 
 	help="File with the shapes [default=%default]"),
 
 make_option(c("-L", "--labels"), default=NULL, type="character",
 	help="The metadata field with the labels [default=%default]"),
+
+make_option(c("-B", "--base_size"), default=16, type='numeric',
+	help="Base font size [default=%default]"),
 
 make_option(c("-H", "--height"), default=7,
 	help="Height of the plot in inches [default=%default]"),
@@ -84,6 +84,12 @@ arguments <- parse_args(parser, positional_arguments = TRUE)
 opt <- arguments$options
 
 if (opt$verbose) {print(opt)}
+##------------
+## LIBRARIES
+##------------ 
+suppressPackageStartupMessages(library("reshape"))
+suppressPackageStartupMessages(library("ggplot2"))
+suppressPackageStartupMessages(library("grid"))
 
 
 ###############
@@ -91,11 +97,8 @@ if (opt$verbose) {print(opt)}
 ##############
 
 # read input tables
-if (opt$input_matrix == "stdin") {
-	m = read.table(file("stdin"), h=T)
-} else {
-	m = read.table(opt$input_matrix, h=T)
-}
+inF = opt$input_matrix; if (opt$input_matrix == "stdin") {inF = file("stdin")}
+m = read.table(inF, h=T, sep="\t")
 
 # Read the color palette
 my_palette = read.table(opt$palette, h=F, comment.char="%")$V1
@@ -127,6 +130,9 @@ if (opt$row_as_variable) {
 m_pca = prcomp(na.omit(m), center=FALSE, scale.=FALSE)} else{
 m_pca = prcomp(t(na.omit(m)), center=FALSE, scale.=FALSE)}
 
+# Scale the scores for biplot
+#scaledScores = sweep(m_pca$x, 2, m_pca$sdev / sqrt(nrow(m_pca$x)), "/")
+scaledScores = m_pca$x
 
 if (opt$verbose) {print(dim(na.omit(m)))}
 
@@ -140,29 +146,20 @@ if (is.na(opt$shape_by)) {shape_by=NULL
 
 # read metadata, one or more table to be merged on labExpId
 if (!is.null(opt$metadata)){
-	metadata = strsplit(opt$metadata, ",")[[1]]
-	for (i in seq_along(metadata)) {
-		mdata = read.table(metadata[i], h=T, sep="\t", row.names=NULL);
-		if (opt$merge_mdata_on %in% colnames(mdata)) {
-			mdata[,opt$merge_mdata_on] <- gsub("[,-]", ".", mdata[,opt$merge_mdata_on])
-		}
-		if ( i==1 ) {
-			new_mdata = mdata
-		}else{
-		new_mdata = merge(mdata, new_mdata, by=c('cell'))
-		}
+	mdata = read.table(opt$metadata, h=T, sep="\t", row.names=NULL);
+	if (opt$merge_mdata_on %in% colnames(mdata)) {
+		mdata[,opt$merge_mdata_on] <- gsub("[,-]", ".", mdata[,opt$merge_mdata_on])
 	}
 
 	cat('append metadata...')
 	
-	df = merge(as.data.frame(m_pca$x),
-	unique(new_mdata[c(color_by, shape_by, opt$merge_mdata_on, opt$labels)]), by.x='row.names', by.y=opt$merge_mdata_on, all.x=T)
+	df = merge(as.data.frame(scaledScores),
+	unique(mdata[c(color_by, shape_by, opt$merge_mdata_on, opt$labels)]), by.x='row.names', by.y=opt$merge_mdata_on, all.x=T)
 }else{
-	df = as.data.frame(m_pca$x)
+	df = as.data.frame(scaledScores)
 }
 
-
-
+cat('\n')
 
 #########
 # OUTPUT
@@ -197,6 +194,40 @@ prinComp_i = as.numeric(gsub("PC", "", prinComp))
 # Get a vector with all the variance percentages
 variances = round(m_pca$sdev^2/sum(m_pca$sdev^2)*100, 2)
 
+if (opt$biplot) {
+
+	aggrVar = opt$color_by
+
+	# === Centroids ===
+
+	centroids = aggregate (
+		formula(sprintf(".~%s", aggrVar)), 
+		df[,c(colnames(df)[grep("^PC", colnames(df))], aggrVar)],
+		mean
+	)
+	centroidsM = centroids[,-1]
+	
+	# === Loadings ===
+	
+	vecNorm = function(x) {sqrt(sum(x**2))}
+	
+	scaledLoadings = sweep(m_pca$rotation, 2, m_pca$sdev * nrow(m_pca$x), "*")
+	
+	centroidsNorm = apply(centroidsM[,prinComp], 1, vecNorm)         # DIM: number of levels x 1
+	loadingsNorm = apply(scaledLoadings[,prinComp], 1, vecNorm)      # DIM: number of variables x 1
+	
+	cosine = ( scaledLoadings[,prinComp] %*% t(centroidsM[,prinComp]) ) / (loadingsNorm %*% t(centroidsNorm))
+	cosine = setNames(data.frame(cosine),  centroids[,1])
+
+	closest = setNames(melt(apply(1-cosine, 2, rank)), c("variable", aggrVar, "rank"))
+	write.table( closest, file=sprintf("%s.cosine.tsv", opt$output), quote=F, row.names=F, sep="\t");
+
+	closest_df = data.frame(merge(closest, scaledLoadings, by.x="variable", by.y="row.names"))
+
+	
+}
+
+
 
 #############
 # PLOT
@@ -206,11 +237,14 @@ variances = round(m_pca$sdev^2/sum(m_pca$sdev^2)*100, 2)
 pts = 5
 
 l_col = opt$labels
+base_size = opt$base_size
 
-theme_set(theme_bw(base_size=16))
+theme_set(theme_bw(base_size = base_size))
+theme_update(legend.text=element_text(size=0.9*base_size))
+theme_update(legend.key.size=unit(0.9*base_size, "points"))
 theme_update(legend.key = element_blank())
 
-
+top = 30
 
 # Open device for plotting
 pdf(sprintf("%s.pdf", output_name), w=opt$width, h=opt$height)
@@ -218,6 +252,15 @@ pdf(sprintf("%s.pdf", output_name), w=opt$width, h=opt$height)
 if (length(prinComp) == 2){
 	# plotting...
 	gp = ggplot(df, aes_string(x=prinComp[1],y=prinComp[2]));
+
+	if (opt$biplot) {
+		gp = gp + geom_point(data=centroids, aes_string(x=prinComp[1], y=prinComp[2], color=opt$color_by), shape=8, size=7)
+		gp = gp + geom_segment( 
+			data=subset(closest_df, rank <= top), 
+			aes_string(x=0, y=0, xend=prinComp[1], yend=prinComp[2], color=opt$color_by)
+		)
+	}
+
 	if (!is.null(opt$color_by)) {
 		gp_color_by=interaction(df[color_by])
 		if (!is.null(opt$sort_color)) {
@@ -228,20 +271,29 @@ if (length(prinComp) == 2){
 	}
 	if (!is.na(opt$shape_by)) {gp_shape_by=interaction(df[shape_by]);
 	gp_shape_by <- factor(gp_shape_by, levels=sort(levels(gp_shape_by)))} else {gp_shape_by=NULL}
+
+	if (opt$border) {
+		gp = gp + geom_point(aes(shape=gp_shape_by), col='black', size=pts+1.0);
+	}
+
 	gp = gp + geom_point(aes(col=gp_color_by, shape=gp_shape_by), size=pts);
+
 	gp = gp + labs(title="");
 	gp = gp + labs(x=sprintf('%s (%s%%)', prinComp[1], variances[prinComp_i[1]]));
 	gp = gp + labs(y=sprintf('%s (%s%%)', prinComp[2], variances[prinComp_i[2]]));
+
 	gp = gp + scale_color_manual(name=opt$color_by, values=my_palette)
 	if (!is.null(opt$shapes)) {
 		gp = gp + scale_shape_manual(name=opt$shape_by, values=my_shapes);
 	}
 	if (opt$no_legend) {
 		gp = gp + guides(shape=FALSE, color=FALSE)
-	}
+	
+}
 	if (!is.null(opt$labels)) {
 		gp = gp + geom_text(aes_string(label=l_col), size=pts)
 	}
+
 	gp
 } 
 

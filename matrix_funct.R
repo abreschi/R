@@ -27,7 +27,7 @@ opt$replace_na = FALSE
 
 option_list <- list(
 
-make_option(c("-i", "--input_matrix"), 
+make_option(c("-i", "--input_matrix"), default="stdin",
 	help="the matrix you want to analyze. Stdin to read from stdin"),
 
 make_option(c("-l", "--log"), action="store_true", default=FALSE, 
@@ -49,7 +49,7 @@ make_option(c("-o", "--output"), default="out.tsv",
 	help="Output file name. stdout for printing on standard output [default=%default]"),
 
 make_option(c("-f", "--func"), default="mean",
-	help="choose the function <mean>, <sd>, <sum>, <median>, <entropy>, <nb> [default=%default]"),
+	help="choose the function <mean>, <sd>, <sum>, <median>, <entropy>, <nentropy>, <tau>, <cv> [default=%default]"),
 
 make_option(c("-C", "--byColumns"), action="store_true", default=FALSE,
 	help="apply the function to the columns, instead of rows [default=%default]"),
@@ -57,7 +57,7 @@ make_option(c("-C", "--byColumns"), action="store_true", default=FALSE,
 make_option(c("-n", "--not_na"), type="double", default=1, 
 	help="fraction of not NA values in the vector for the mean. If NAs are replaced they are not counted [default=%default]"),
 
-make_option(c("--verbose"), action="store_true", default=FALSE,
+make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
 	help="verbose output")
 )
 
@@ -82,16 +82,37 @@ source("/users/rg/abreschi/R/functions.R")
 if (opt$verbose) {cat("DONE\n\n", file=stderr())}
 
 
+# ==========================================
+# Function for loading Rdata
+# ==========================================
+
+load_obj <- function(f)
+{
+    env <- new.env()
+    nm <- load(f, env)[1]
+    env[[nm]]
+}
+
 ###############
 # BEGIN
 ###############
 
-# read options
-if (opt$input == "stdin") {
-	m = read.table(file("stdin"), h=T) 
+# read table
+if (opt$verbose) {cat(sprintf("%s: ", Sys.time()), "Reading matrix... ")}
+if (opt$input_matrix == "stdin") {
+    m = read.table(file("stdin"), h=T)
 } else {
-	m = read.table(opt$input_matrix, h=T)
+    m <- try(load_obj(opt$input_matrix), silent=T)
+    if (class(m) == "try-error") {m <- read.table(opt$input_matrix)}
 }
+if (opt$verbose) {cat("DONE\n")}
+
+## read options
+#if (opt$input == "stdin") {
+#	m = read.table(file("stdin"), h=T) 
+#} else {
+#	m = read.table(opt$input_matrix, h=T)
+#}
 
 # Remove non-numeric columns
 char_cols <- which(sapply(m, class) == 'character')
@@ -104,17 +125,28 @@ if (opt$replace_na) {m <- replace(m, is.na(m), 0)}
 if (opt$log) {m = log10(m + opt$pseudocount)}
 
 
-
-
 # Set the result to NA when too many missing values are present
 func = function(x) {
-	ifelse((sum(!is.na(x)) < (opt$not_na*length(x))), NA, eval(parse(text=opt$func))(x,na.rm=T))
+	ifelse((sum(!is.na(x)) < (opt$not_na*length(x))), NA, format(eval(parse(text=opt$func))(x,na.rm=T), digits=5))
 }
 
 
 # Apply the function by columns
 if (opt$byColumns) {
-	new_m = apply(m, 2, func)
+	if (!is.null(opt$metadata)) {
+		mdata <- read.table(opt$metadata, h=T, sep="\t")
+	}
+	if (!is.null(opt$mean_by)) {
+		mean_by = strsplit(opt$mean_by, ",")[[1]]
+		m[,ncol(m)+1] <- mdata[,mean_by][match(rownames(m), mdata[,"gene"])]
+		colnames(m)[ncol(m)] <- mean_by
+		form = as.formula(sprintf(".~%s", mean_by))
+		new_m <- aggregate(form, m, func)
+	} else {
+		new_m = data.frame(id=colnames(m), fun=apply(m, 2, func))
+		
+	}
+
 } else {
 
 	# apply the function to the whole matrix if no value is provided

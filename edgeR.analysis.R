@@ -11,6 +11,7 @@ options(stringsAsFactors=F)
 opt = list()
 opt$n_samples = 2
 opt$cpm = 1
+opt$replace_NAs = TRUE
 
 ##################
 # OPTION PARSING
@@ -19,13 +20,15 @@ opt$cpm = 1
 suppressPackageStartupMessages(library("optparse"))
 
 option_list <- list(
-make_option(c("-i", "--input_matrix"), help="the matrix with READ COUNTS you want to analyze"),
+make_option(c("-i", "--input_matrix"), default="stdin", help="the matrix with READ COUNTS you want to analyze [default=%default]"),
+make_option(c("-r", "--replace_NAs"), action="store_true", default=FALSE, help="replace NAs with 0 [default=%default]"),
 make_option(c("-m", "--metadata"), help="tsv file with metadata on matrix experiment"),
 make_option(c("-f", "--fields"), help="choose the fields you want to use in the differential expression, comma-separated"),
-make_option(c("-F", "--formula"), help="a formula for the differential expression [default=%default]", default="~."),
+make_option(c("-F", "--formula"), default="~.", help="a formula for the differential expression [default=%default]"),
+make_option(c("-T", "--tissue_sp"), default=FALSE, action="store_true", help="Build a linear model with grand mean intercept"),
 make_option(c("-C", "--cpm"), help="threshold for cpm [default=%default]", type="integer", default=1),
 make_option(c("-s", "--n_samples"), help="minimum number of samples with cpm > \"cpm\" [default=%default]", type="integer", default=2),
-make_option(c("-c", "--coefficient"), help="the coefficient for the comparison", type='integer'),
+make_option(c("-c", "--coefficient"), type="character", help="the coefficient(s) for the comparison"),
 make_option(c("-n", "--contrast"), help="Numbers comma-separated giving the vector of contrasts. Use instead of coefficients"),
 make_option(c("-o", "--output"), help="additional suffix for output [default=%default]", default='out'),
 make_option(c("-d", "--output_dir"), help="choose the output directory [default=%default]", default="./"),
@@ -52,6 +55,18 @@ suppressPackageStartupMessages(library('ggplot2'))
 suppressPackageStartupMessages(library('edgeR'))
 
 if (opt$verbose) {cat('DONE\n\n')}
+
+# ==========================================
+# Function for loading Rdata
+# ==========================================
+
+load_obj <- function(f)
+{
+    env <- new.env()
+    nm <- load(f, env)[1]
+    env[[nm]]
+}
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Function that estimates the average of gene counts
@@ -105,9 +120,27 @@ if (is.null(opt$contrast) & is.null(opt$coefficient) & length(fields)>1) {
 	q(save='no')
 }
 
+coeff = NULL
+if (!is.null(opt$coefficient)) {
+	coeff = eval(parse(text=opt$coefficient))
+}
+
+contr = NULL
+if (!is.null(opt$contrast)) {
+	contr <- eval(parse(text=opt$contrast))
+} 
 
 # read the matrix from the command line
-m = read.table(opt$input_matrix, h=T)
+#if (opt$input_matrix == "stdin") {inF = file("stdin")} else {inF=opt$input_matrix}
+#m = read.table(inF, h=T, sep="\t")
+if (opt$input_matrix == "stdin") {
+    m = read.table(file("stdin"), h=T)
+} else {
+    m <- try(load_obj(opt$input_matrix), silent=T)
+    if (class(m) == "try-error") {m <- read.table(opt$input_matrix)}
+}
+
+if (opt$replace_NAs) {m<-replace(m, is.na(m), 0)}
 genes = rownames(m)
 m = (apply(m, 2, as.integer))
 rownames(m) <- genes
@@ -123,18 +156,17 @@ m = m[intersect(rownames(m),fgenes),]
 
 
 # read the metadata from the metadata file
-mdata = read.table(opt$metadata, h=T, sep='\t')
-mdata$labExpId <- gsub(",", ".", mdata$labExpId)
+mdata = read.table(opt$metadata, h=T, sep='\t', quote=NULL)
+mdata[,"labExpId"] <- gsub("[,-]", ".", mdata[,"labExpId"])
 mdata = unique(mdata[,c("labExpId", fields)])
 mdata = mdata[match(colnames(m), mdata[,"labExpId"]), c("labExpId", fields)]
 
 
 # ONLY ONE CONDITION
-
 #if (length(fields) == 1) {
 if (length(unique(unlist(mdata[fields]))) == 2) {
-#condition = as.factor(sapply(colnames(m), function(x) unique(subset(mdata, labExpId == x)[,fields])))
 condition = factor(mdata[match(colnames(m), mdata[,"labExpId"]), fields])
+if (opt$verbose) {print(condition)}
 
 # create count object for edgeR
 M = DGEList(counts=na.omit(m), group = condition)
@@ -177,14 +209,22 @@ for(lev in levels(condition)) {
 # MULTIPLE CONDITIONS
 
 }else{
-#fields = strsplit(opt$fields, ",")[[1]]
-#design_df = subset(mdata, labExpId %in% colnames(m))
-design_df = mdata[mdata[,"labExpId"] %in% colnames(m),]
-design_df = droplevels(design_df)
-design_df = design_df[order(design_df$labExpId),]
-design = model.matrix(as.formula(opt$formula), design_df[fields])
+#design_df = mdata[mdata[,"labExpId"] %in% colnames(m),]
+#design_df = droplevels(design_df)
+#design_df = design_df[order(design_df$labExpId),]
+#design = model.matrix(as.formula(opt$formula), design_df[fields])
+design = model.matrix(as.formula(opt$formula), mdata[fields])
+#print(colnames(design))
+rownames(design) <- mdata[, "labExpId"]
+
+if (opt$tissue_sp) {
+	mdata[,fields] <- factor(mdata[,fields])
+	contrasts(mdata[,fields]) <- contr.sum(levels(mdata[,fields]))
+	design = model.matrix(as.formula(opt$formula), mdata[fields])
+	rownames(design) <- mdata[, "labExpId"]
+}
+
 print(colnames(design))
-rownames(design) <- design_df$labExpId
 
 cat('\n')
 
@@ -205,14 +245,18 @@ M <- estimateGLMTagwiseDisp(M, design)
 
 
 # calling differential expression
-fit <- glmFit(M, design)
-if (!is.null(opt$contrast)) {contr <- as.numeric(strsplit(opt$contrast, ",")[[1]])} else {contr=NULL}
-lrt <- glmLRT(fit, coef=opt$coeff, contrast=contr)
+if (opt$tissue_sp) {
+	fit <- glmQLFit(M, design)
+	lrt <- glmQLFTest(fit, coef=coeff, contrast=contr)
+} else {
+	fit <- glmFit(M, design)
+	lrt <- glmLRT(fit, coef=coeff, contrast=contr)
+}
 res = topTags(lrt, n=nrow(lrt))$table
 }
 
 # format the otuput and write to a file
-res$logFC <- round(res$logFC, 2)
+if(length(coeff)<2) {res$logFC <- round(res$logFC, 2)}
 res$logCPM <- round(res$logCPM, 2)
 res$PValue <- format(res$PValue, digits=2)
 res$FDR <- format(res$FDR, digits=2)
@@ -227,20 +271,23 @@ write.table(res, file=sprintf("%s.tsv", output), quote=F, sep='\t',row.names=T)
 
 pdf(sprintf('%s.pdf', output))
 
-# MA plot
-gp = ggplot(res, aes(x=logCPM, y=logFC))
-gp = gp + geom_point(shape=1, aes(color=cut(as.double(FDR), breaks=c(0, 0.01, 0.05, 1))))
-gp = gp + scale_color_brewer(name="FDR", palette="Set1")
-gp = gp + geom_hline(yintercept=c(2,-2))
-gp
-
-# Volcano plot
-gp = ggplot(res, aes(x=logFC, y=-log10(as.double(FDR))))
-gp = gp + geom_point(shape=1, aes(color=cut(as.double(FDR), breaks=c(0, 0.01, 0.05, 1))))
-gp = gp + scale_color_brewer(name="FDR", palette="Set1")
-gp = gp + scale_y_log10()
-gp = gp + geom_vline(xintercept=c(2,-2))
-gp
+if (length(coeff)<2) {
+	# MA plot
+	gp = ggplot(res, aes(x=logCPM, y=logFC))
+	gp = gp + geom_point(shape=1, aes(color=cut(as.double(FDR), breaks=c(0, 0.01, 0.05, 1))))
+	gp = gp + scale_color_brewer(name="FDR", palette="Set1")
+	gp = gp + geom_hline(yintercept=c(2,-2))
+	gp
+	
+	# Volcano plot
+	gp = ggplot(res, aes(x=logFC, y=-log10(as.double(FDR))))
+	gp = gp + geom_point(shape=1, aes(color=cut(as.double(FDR), breaks=c(0, 0.01, 0.05, 1))))
+	gp = gp + scale_color_brewer(name="FDR", palette="Set1")
+	gp = gp + scale_y_log10()
+	gp = gp + geom_vline(xintercept=c(2,-2))
+	gp
+	
+}
 
 # plot dispersion estimates
 plotBCV(M)

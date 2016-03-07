@@ -24,6 +24,9 @@ make_option(c("-k", "--cluster"), type='integer',
 make_option(c("-f", "--factor"), type='integer',
 	help="Index of the column with the factor"),
 
+make_option(c("--func"), default="median",
+	help="Function to aggregate in each cluster [default=%default]"),
+
 make_option(c("-d", "--is_discrete"), default=FALSE, action="store_true",
 	help="The factor is a discrete class. [default=%default]"),
 
@@ -134,7 +137,7 @@ factor_col = colnames(m)[opt$factor]
 
 if (!opt$is_discrete) {
 	formula_agg = as.formula(sprintf("%s~id", factor_col))
-	m_agg = aggregate(formula_agg, m, median, na.rm=TRUE)
+	m_agg = aggregate(formula_agg, m, eval(opt$func), na.rm=TRUE)
 	# Merge the attribute with the hex grid
 	df = merge(hex, m_agg)
 } else {

@@ -116,6 +116,9 @@ for (i in grep("pvalue", colnames(res))) {
 res = sapply(res, round, 4)
 rownames(res) <- rownames(m)
 
+# If the variance is zero set the results to NA
+res[apply(m, 1, var)==0,] <- NA
+
 
 # OUTPUT
 

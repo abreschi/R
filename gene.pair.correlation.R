@@ -18,8 +18,8 @@ make_option(c("-i", "--input"),
 make_option(c("-G", "--gene_pairs"), default="stdin",
 	help="File or stdin. Two-column files with pairs of elements [default=%default]"),
 
-make_option(c("-o", "--output"), default="cor.out.pdf",
-	help="Output file name [default=%default]"),
+make_option(c("-o", "--output"), default="cor.out.tsv",
+	help="Output file name or stdout [default=%default]"),
 
 make_option(c("--header"), action="store_true", default=FALSE,
 	help="Use this if the input has a header [default=%default]"),
@@ -38,15 +38,6 @@ make_option(c("-m", "--method"), default="pearson",
 
 make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
 	help="if you want more output [default=%default]")
-
-#make_option(c("-f", "--fill"), default="aquamarine",
-#	help="choose the color which you want to fill the histogram with"),
-#
-#make_option(c("-c", "--color"), default="grey",
-#	help="choose the color which you want to contour the histogram with"),
-#
-#make_option(c("-b", "--binwidth"), type="double", 
-#	help="Specify binwidth. Leave empty for default")
 
 )
 
@@ -105,10 +96,10 @@ df = merge(data.frame(c=c, split_by=names(c)), df)
 df = unique(df[c("Var1", colnames(pairs)[2], "c")])
 
 #print(head(df))
+output = ifelse(opt$output == "stdout", "", opt$output)
+write.table(df, output, row.names=FALSE, col.names=FALSE, sep="\t", quote=FALSE)
 
-write.table(df, opt$output, row.names=FALSE, col.names=FALSE, sep="\t", quote=FALSE)
-
-warnings()
+#warnings()
 
 
 q(save='no')

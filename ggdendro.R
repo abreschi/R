@@ -154,7 +154,8 @@ if (opt$input_matrix == "stdin") {
 }
 if (opt$verbose) {cat("DONE\n")}
 
-if (!is.null(opt$debug)) {m = m[1:opt$debug,]}
+set.seed(1)
+if (!is.null(opt$debug)) {m = m[sample(nrow(m), opt$debug),]}
 
 # Read palette
 if (!is.null(opt$colSide_palette)) {

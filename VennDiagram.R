@@ -26,11 +26,13 @@ make_option(c("-H", "--height"), default=3, type='integer',
 make_option(c("-o", "--output"), help="output file name WITHOUT extension [default=Venn.out]", default="venn.out")
 )
 
-parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
+cat("\nNOTE: NAs are treated as strings and not as missing values\n\n", file=stderr())
+
+parser <- OptionParser(usage = "%prog [options] file(s)", option_list=option_list)
 arguments <- parse_args(parser, positional_arguments = TRUE)
 opt <- arguments$options
 arg <- arguments$args 
-print(arguments)
+#print(arguments)
 
 
 
@@ -50,12 +52,12 @@ cat("DONE\n\n")
 # read the lists of elements from args
 venn_list=list()
 for (f in arg) {
-l = as.list(read.table(f, h=T))
-venn_list = c(venn_list, l)
+	l = as.list(read.table(f, h=T))
+	venn_list = modifyList(venn_list, l)
 }
 
 for (i in seq_along(arg)) {
-	l = as.list(read.table(arg[i], h=T))
+	l = as.list(read.table(arg[i], h=T, na.strings=NULL))
 	if (i==1) {
 		venn_list = l
 		merged = l[[1]]
@@ -96,12 +98,41 @@ if (is.null(opt$Lcol)) {
 }
 
 
-
-# plotting...
+# ===============
+# ** plotting...
+# ===============
 
 image_type = 'png'
 w = opt$width
 h = opt$height
+
+
+# Set the label distances
+cat.dist = (w*c(0.01,0.01,0,0,0))[1:length(venn_list)]
+
+if (length(venn_list) == 4) {
+	cat.dist = (w*c(0.08, 0.08, 0.02, 0.02))
+}
+
+# Set the label position
+if (length(venn_list) == 5) {
+	cat.pos = c(20, 40, 40, 30, 10)
+}
+
+if (length(venn_list) == 4) {
+	cat.pos = c(180, 180, 0, 0)
+}
+
+if (length(venn_list) == 3) {
+	cat.pos = c(-20, 20, 20)
+}
+	
+if (length(venn_list) == 2) {
+	cat.pos = c(20, 30)
+}
+
+
+
 venn.diagram(venn_list, 
 	filename=sprintf("%s.%s", opt$output, image_type), 
 	imagetype=image_type,
@@ -109,9 +140,9 @@ venn.diagram(venn_list,
 	width=w,
 	height=h,
 	col=col,
-	cat.col=label_col,
-	cat.pos=c(-20, 20, 20, 30, 10)[1:length(venn_list)],
-	cat.dist=(w*c(0.01,0.01,0,0,0))[1:length(venn_list)],
+	cat.col = label_col,
+	cat.pos = cat.pos,
+	cat.dist = cat.dist,
 	cat.cex=c(0.8,0.8,0.8,0.8,0.8)[1:length(venn_list)],
 	fill=face_col
 )

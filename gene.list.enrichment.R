@@ -15,7 +15,7 @@ make_option(c("-i", "--input"), default="stdin",
 	help="File or stdin with a list of genes to test for enrichment [default=%default]"),
 
 make_option(c("-d", "--db"), 
-	help="A tab-separated database with the annotation. It has a header. First two columns are <gene_set> <gene_id>"),
+	help="A tab-separated database with the annotation. It has a header. First two columns are <gene_set> <gene_id>. \"%\" is the comment char."),
 
 make_option(c("--header"), action="store_true", default=FALSE,
 	help="Use this if the input has a header [default=%default]"),
@@ -66,14 +66,11 @@ hyper.test = function(x) {
 
 # Read data
 
-if (opt$input == "stdin") {
-	m = read.table(file("stdin"), h=opt$header) 
-} else {
-	m = read.table(opt$input, h=opt$header)
-}
+if (opt$input == "stdin") {inF = file("stdin")} else {inF = opt$input}
+m = read.table(inF, h=opt$header)
 
 
-db = read.table(opt$db, h=T, sep="\t", quote="")
+db = read.table(opt$db, h=T, sep="\t", quote="", comment.char="%")
 
 formula = as.formula(paste(colnames(db)[2],"~",colnames(db)[1]))
 db_counts = setNames(aggregate(formula, db, length), c("feature", "total"))
@@ -88,8 +85,12 @@ df$FDR = p.adjust(df$p.value, method="BH")
 
 df = df[order(df$FDR),]
 
-output = ifelse(opt$output == "stdout", "", opt$output)
+# Format and write output
 
+df$p.value <- format(df$p.value, digits=2)
+df$FDR <- format(df$FDR, digits=2)
+
+output = ifelse(opt$output == "stdout", "", opt$output)
 write.table(df, output, quote=FALSE, row.names=FALSE, sep="\t")
 
 

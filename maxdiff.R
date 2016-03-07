@@ -14,7 +14,6 @@ suppressPackageStartupMessages(library("optparse"))
 cat("DONE\n\n")
 
 
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 options(stringsAsFactor=FALSE)
 theme_set(theme_bw())
 
@@ -25,26 +24,32 @@ theme_set(theme_bw())
 
 
 option_list <- list(
-make_option(c("-i", "--input_matrix"), help="the matrix you want to analyze"),
-#make_option(c("-l", "--log"), action="store_true", default=FALSE, help="apply the log [default=%default]"),
-#make_option(c("-p", "--pseudocount"), type="double", help=sprintf("specify a pseudocount for the log [default=%s]",pseudocount), default=pseudocount),
-make_option(c("-m", "--metadata"), help="tsv file with metadata on matrix experiment. If empty, column names are used as labels."),
-#make_option(c("-r", "--representation"), help="choose the representation <boxplot>, <density>, <histogram>, <boxviol> [default=%default]", default="boxplot"),
-make_option(c("-o", "--output"), help="additional tags for otuput", default='out'),
-#make_option(c("-f", "--fill_by"), help="choose the color you want to fill by [default=NA]", type='character', default=NA),
-#make_option(c("-v", "--value"), help="give a name for the value you are plotting the distribution of [default=%default]", default="rpkm"), 
-#make_option(c("-w", "--wrap"), action="store_true", help="say if you want the density plot in facet_wrap [default=%default]", default=FALSE), 
-#make_option(c("-T", "--title"), help="give a title to the plot [default=%default]", default=""),
-make_option(c("-b", "--breaks"), help="threshold on the breaks for plotting [default=%default]", type="double", default=3),
-make_option(c("-p", "--pval"), help="p-value threshold for plotting [default=%default]", type="double", default=0.01),
-make_option(c("-t", "--tags"), help="comma-separated field names you want to display in the labels. Leave default for using column names [default=%defau
-lt]", default="labExpId")
+make_option(c("-i", "--input_matrix"), 
+	help="the matrix you want to analyze"),
+
+make_option(c("-m", "--metadata"), 
+	help="tsv file with metadata on matrix experiment. If empty, column names are used as labels."),
+
+make_option(c("-o", "--output"), default="out",
+	help="additional tags for otuput [default=%default]"),
+
+make_option(c("-b", "--breaks"), type="double", default=3, 
+	help="threshold on the breaks for plotting [default=%default]"),
+
+make_option(c("-p", "--pval"), type="double", default=0.01, 
+	help="p-value threshold for plotting [default=%default]"),
+
+make_option(c("-t", "--tags"), default="labExpId",
+	help="comma-separated field names you want to display in the labels. Leave default for using column names [default=%default]"),
+
+make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
+	help="verbose output [default=%default]")
 )
 
 parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
 arguments <- parse_args(parser, positional_arguments = TRUE)
 opt <- arguments$options
-print(opt)
+if (opt$verbose) {print(opt)}
 
 ##############
 # BEGIN
@@ -121,10 +126,12 @@ maxdiff_matshuff$gene <- sapply(rownames(maxdiff_matshuff), function(x) strsplit
 maxdiff_matshuff_pdf <- density(subset(maxdiff_matshuff, !duplicated(gene))$log10_max_diff,na.rm=T)
 
 maxdiff$pval <- sapply(maxdiff$log10_max_diff, pval, pdf=maxdiff_matshuff_pdf)
-maxdiff$pvcor <- sapply(maxdiff$pval, function(x) 1-((1-x)**nrow(m)))
+#maxdiff$pvcor <- sapply(maxdiff$pval, function(x) 1-((1-x)**nrow(m)))
+maxdiff$pval.adj = p.adjust(maxdiff$pval, method="BH")
 
 maxdiff_matshuff$pval <- sapply(maxdiff_matshuff$log10_max_diff, pval, pdf=maxdiff_matshuff_pdf)
-maxdiff_matshuff$pvcor <- sapply(maxdiff_matshuff$pval, function(x) 1-((1-x)**nrow(m)))
+#maxdiff_matshuff$pvcor <- sapply(maxdiff_matshuff$pval, function(x) 1-((1-x)**nrow(m)))
+maxdiff_matshuff$pval.adj = p.adjust(maxdiff_matshuff$pval, method="BH")
 
 thr = quantile(subset(maxdiff_matshuff, !duplicated(gene))$log10_max_diff, 0.95)
 
@@ -133,7 +140,8 @@ mdata = read.table(opt$metadata, h=T, sep='\t')
 mdata$labExpId <- sapply(mdata$labExpId, function(x) gsub(",", ".", x))
 
 tags = strsplit(opt$tags, ",")[[1]]
-maxdiff <- merge(maxdiff, unique(mdata[unique(c("labExpId",tags))]), by.x="rgt_max_diff", by.y="labExpId") 
+mdata = unique(mdata[unique(c("labExpId",tags))])
+maxdiff <- merge(maxdiff, mdata, by.x="rgt_max_diff", by.y="labExpId") 
 maxdiff_matshuff <- merge(maxdiff_matshuff, unique(mdata[unique(c("labExpId",tags))]), by.x="rgt_max_diff", by.y="labExpId") 
 maxdiff$label = apply(maxdiff[tags], 1, paste, collapse=".")
 maxdiff_matshuff$label = apply(maxdiff_matshuff[tags], 1, paste, collapse=".")

@@ -63,7 +63,6 @@ opt <- arguments$options
 if (opt$verbose) {print(opt)}
 
 
-
 ##------------
 ## LIBRARIES
 ##------------ 
@@ -75,9 +74,10 @@ suppressPackageStartupMessages(library(ggplot2))
 suppressPackageStartupMessages(library(plyr))
 if (opt$verbose) {cat("DONE\n\n")}
 
-##--------------------##
-## CLUSTERING SAMPLES ##
-##--------------------##
+
+#~~~~~~~~~~~~~~
+# BEGIN
+#~~~~~~~~~~~~~~
 
 # read the matrix from the command line
 if (opt$input_matrix == "stdin") {
@@ -87,7 +87,11 @@ if (opt$input_matrix == "stdin") {
 }
 
 ylab = opt$x_title
-cbbPalette = read.table(opt$palette, h=F, comment.char="%")$V1
+
+# Read palette
+palette = read.table(opt$palette, h=F, comment.char="%")$V1
+if (opt$verbose) {cat("Palette: ", palette, "\n")}
+
 
 # remove potential gene id columns
 char_cols <- which(sapply(m, class) == 'character')
@@ -98,7 +102,6 @@ if (length(char_cols) != 0) {genes = m[,char_cols]; m = m[,-(char_cols)]}
 # substitute the matrix with its log if required by the user
 if (opt$log) {
 	m = log10(replace(m, is.na(m), 0) + opt$pseudocount);
-#	ylab = sprintf('log10(%s+%s)', opt$x_axis, opt$pseudocount)
 }
 
 # prepare data.frame for ggplot
@@ -119,7 +122,7 @@ if (!is.null(opt$metadata)) {
 	df = merge(unique(mdata[c("labExpId", tags, opt$fill_by, opt$alpha_by)]), df, by="labExpId")
 	
 	# change color palette in case length is too much
-	if (length(unique(df[,opt$fill_by])) > length(cbbPalette)) {cbbPalette <- rainbow(length(unique(df[,opt$fill_by])))}
+	if (length(unique(df[,opt$fill_by])) > length(palette)) {palette <- rainbow(length(unique(df[,opt$fill_by])))}
 
 	# change the fill_by column to factor
 	if (!is.null(opt$fill_by)) {
@@ -148,10 +151,11 @@ theme_set(theme_bw(base_size=14))
 
 width = 7; height = 7;
 
-medians = aggregate(rpkm~labels, df, median)
+medians = aggregate(rpkm~labels, df, function(x) median(x[is.finite(x)], na.rm=T))
 lev = medians[order(medians$rpkm),]$labels
 df$labels = factor(df$labels, levels=lev)
 
+if(opt$verbose) {print(medians)}
 
 width = opt$width
 height = opt$height
@@ -161,7 +165,7 @@ breaks = floor(min(df[is.finite(df[,"rpkm"]),"rpkm"])):ceiling(max(df[is.finite(
 if (opt$representation == "boxplot") {
 
 	gp = ggplot(df, aes_string(x="labels", y="rpkm"))
-	gp = gp + geom_boxplot(outlier.size=0.5, size=0.5, aes_string(fill=opt$fill_by, alpha=opt$alpha_by))
+	gp = gp + geom_boxplot(outlier.size=0.75, size=0.5, aes_string(fill=opt$fill_by, alpha=opt$alpha_by))
 	gp = gp + labs(y=ylab, x='', title=opt$title)
 	gp = gp + coord_flip()
 	gp = gp + scale_fill_manual(values = palette)

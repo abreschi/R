@@ -42,31 +42,39 @@ opt <- arguments$options
 # ========
 # BEGIN
 # ========
+if (!is.null(opt$labels)) {labels = strsplit(opt$labels, ",")[[1]]}
 
-labels = strsplit(opt$labels, ",")[[1]]
 vertical_lines = as.numeric(strsplit(opt$vertical_lines, ",")[[1]])
 
 
 # Read data
 
-if (opt$input_files == "stdin") {
-input_files = strsplit(opt$input_files, ",")[[1]]
-i = 1
-for (f in input_files) {
-	if (i == 1 ) {
-		m = read.table(f, h=opt$header)
-		colnames(m)[1] <- "position"
-		colnames(m)[2] <- labels[i]
+if (opt$input_files != "stdin") {
+	input_files = strsplit(opt$input_files, ",")[[1]]
+	i = 1
+	for (f in input_files) {
+		if (i == 1 ) {
+			m = read.table(f, h=opt$header)
+			colnames(m)[1] <- "position"
+			colnames(m)[2] <- labels[i]
 		}
-	if (i != 1) {
-		tmp = read.table(f, h=F)
-		colnames(tmp)[1] <- "position"
-		colnames(tmp)[2] <- labels[i]
-		m = merge(m, tmp, by = "position")
+		if (i != 1) {
+			tmp = read.table(f, h=F)
+			colnames(tmp)[1] <- "position"
+			colnames(tmp)[2] <- labels[i]
+			m = merge(m, tmp, by = "position")
 		}
-	i = i+1
+		i = i+1
 	}
-
+} else {
+	m = read.table(file('stdin'), h=opt$header)
+	colnames(m)[1] <- "position"
+	if (is.null(opt$labels)) {
+		colnames(m)[2] <- 'label'
+	} else {
+		colnames(m)[2] <- labels[1]
+	}
+}
 
 
 # Melt data
@@ -83,6 +91,7 @@ gp = gp + geom_line(aes(group=variable, color=variable), alpha=0.5, size=1)
 gp = gp + geom_vline(xintercept=vertical_lines, color="grey", linetype="longdash")
 gp = gp + labs(title=opt$title, y=opt$y_title)
 gp = gp + scale_color_manual(values=cbbPalette)
+if (is.null(opt$label)) {gp = gp + theme(legend.position='none')}
 
 ggsave(opt$output, h=5, w=7)
 

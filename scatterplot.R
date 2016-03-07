@@ -18,6 +18,10 @@ make_option(c("-i", "--input_matrix"), default="stdin",
 	help="the matrix you want to analyze. \"stdin\" for stdin [default=%default]"),
 
 make_option(c("--header"), action="store_true", default=FALSE, help="The file has header [default=%default]"),
+
+make_option(c("-r", "--replace_NAs"), action="store_true", default=FALSE, 
+	help="Replace NAs with 0 [default=%default]"),
+
 make_option(c("-x", "--x_axis"), type='integer', default=1,
 	help="the index (1-based) of the column you want on the x axis [default=%default]"),
 
@@ -61,7 +65,7 @@ make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
 parser <- OptionParser(
 	usage = "%prog [options] file", 
 	option_list=option_list,
-	description = "Plot a density scatterplot"
+	description = "\n\nPlot a density scatterplot"
 )
 
 arguments <- parse_args(parser, positional_arguments = TRUE)
@@ -91,6 +95,8 @@ if (opt$input_matrix == "stdin") {
 	m = read.table(opt$input_matrix, h=opt$header)
 }
 
+# Replace NAs with 0 if needed
+if (opt$replace_NAs) {m <- replace(m, is.na(m), 0)}
 
 if (opt$x_log) {m[,opt$x_axis] <- m[,opt$x_axis] + opt$x_psd}
 if (opt$y_log) {m[,opt$y_axis] <- m[,opt$y_axis] + opt$y_psd}

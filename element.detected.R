@@ -1,3 +1,4 @@
+#!/usr/bin/env Rscript
 
 ##------------
 ## LIBRARIES
@@ -21,6 +22,8 @@ option_list <- list(
 make_option(c("-i", "--input_matrix"), help="the matrix you want to analyze"),
 make_option(c("-m", "--metadata"), help="tsv file with metadata on matrix experiment"),
 make_option(c("-o", "--output"), help="additional flags for otuput", default="out"),
+make_option(c("-W", "--width"), default=5, help="width in inches [default=%default]"),
+make_option(c("-H", "--height"), default=5, help="height in inches [default=%default]"),
 #make_option(c("-c", "--color_by"), help="choose the color you want to color by [default=NA]", type='character', default=NA),
 make_option(c("-f", "--field"), help="dashboard field by which the individuals are grouped")
 #make_option(c("-t", "--tags"), help="comma-separated field names you want to display in the labels", default="cell,sex,age")
@@ -73,10 +76,11 @@ gp = gp + facet_grid(element~.)
 gp = gp + geom_point(data=subset(m, tag=='cumulative'), aes_string(x="labExpId", y="prop"), size = 4, alpha = 0.7, col=cbbPalette[2:2+n_colors])
 gp = gp + labs(y='Proportion of detected elements (%)', x="")
 gp = gp + theme(axis.text = element_text(size=13))
+gp = gp + theme(axis.text.x = element_text(angle=45, hjust=1))
 #gp
 
-w=5
-h=5
+w=opt$width
+h=opt$height
 
 ggsave(filename=sprintf("%s.pdf", output), h=h, w=w)
 ggsave(filename=sprintf("%s.png", output), h=h, w=w)

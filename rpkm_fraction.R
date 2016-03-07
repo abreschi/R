@@ -11,8 +11,6 @@ suppressPackageStartupMessages(library(plyr))
 
 
 options(stringsAsFactors=F)
-pseudocount = 1e-04
-cbbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#000000", "#F0E442", "#0072B2", "#D55E00", "#CC79A7") 
 
 ##################
 # OPTION PARSING
@@ -20,15 +18,14 @@ cbbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#000000", "#F0E442", "#0072B2"
 
 
 option_list <- list(
-make_option(c("-i", "--input_matrix"), help="the matrix you want to analyze"),
-#make_option(c("-l", "--log"), action="store_true", default=FALSE, help="apply the log [default=FALSE]"),
-#make_option(c("-p", "--pseudocount"), type="double", help=sprintf("specify a pseudocount for the log [default=%s]",pseudocount), default=pseudocount),
+make_option(c("-i", "--input_matrix"), default="stdin", help="the matrix you want to analyze [default=%default]"),
 make_option(c("-m", "--metadata"), help="tsv file with metadata on matrix experiment"),
 make_option(c("-o", "--output"), help="additional tags for otuput", default="out"),
 make_option(c("-c", "--color_by"), help="choose the color you want to color by. Leave empty for no color", type='character'),
 make_option(c("-y", "--linetype_by"), help="choose the factor you want the linetype by. Leave empty for no linetype", type="character"),
 make_option(c("-f", "--file_sel"), help="list of elements of which computing the proportion at each point"),
-make_option(c("--palette"), help="file with the colors"),
+make_option(c("--out_file"), help="store the coordinates in a file [default=%default]"),
+make_option(c("-P", "--palette"), help="file with the colors"),
 make_option(c("-t", "--tags"), help="choose the factor by which grouping the lines [default=%default]", default="labExpId")
 )
 
@@ -45,7 +42,8 @@ opt <- arguments$options
 output = sprintf("rpkm_fraction.%s", opt$output)
 
 # 1. read the matrix from the command line
-m = read.table(opt$input_matrix, h=T)
+if (opt$input_matrix == "stdin") {inF = file("stdin")} else {inF = opt$input_matrix}
+m = read.table(inF, h=T, sep="\t")
 
 
 # Read color palette if present
@@ -65,15 +63,15 @@ sortm <- apply(m, 2, sort, na.last=T, d=T)
 # 3. calculate cumulative sum
 cumm <- as.data.frame(apply(sortm, 2, function(x) cumsum(x/sum(x,na.rm=T))))
 
-
 # 4. read the metadata from the metadata file
 mdata = read.table(opt$metadata, h=T, sep='\t')
-mdata$labExpId <- sapply(mdata$labExpId, function(x) gsub(",", ".", x))
+mdata[,"labExpId"] <- sapply(mdata[,"labExpId"], function(x) gsub(",", ".", x))
 if (!is.null(opt$color_by)) {opt$color_by <- strsplit(opt$color_by, ",")[[1]]}
 
 # prepare data.frame for ggplot
 df = melt(cumm, variable.name = "labExpId", value.name="rpkm_fraction")
-df = merge(unique(mdata[unique(c("labExpId", strsplit(opt$tags, ",")[[1]], opt$color_by, opt$linetype_by))]), df, by="labExpId")
+fields = unique(c("labExpId", strsplit(opt$tags, ",")[[1]], opt$color_by, opt$linetype_by))
+df = merge(unique(mdata[fields]), df, by="labExpId")
 df$labels = apply(df[strsplit(opt$tags, ",")[[1]]], 1, paste, collapse="_")
 # add a column with the x index
 df  = ddply(df, .(labels), transform, x=seq_along(labels), y=sort(rpkm_fraction, na.last=T, d=F))
@@ -82,27 +80,35 @@ df  = ddply(df, .(labels), transform, x=seq_along(labels), y=sort(rpkm_fraction,
 
 if (!is.null(opt$file_sel)) {
 
+	prop_df = data.frame()
 	sel = read.table(opt$file_sel, h=F)[,1]
 	# Order the data
-	orderm = apply(m, 2, order, na.last=T, decreasing=T)
+	orderm = apply(-m, 2, rank, na.last=T, ties.method='first')
 	# NB: orderm has lost the rownames 
 	thresholds = c(1:10 %o% 10^(0:4))
 	thresholds = thresholds[which(thresholds < nrow(m))]
 
 	props = sapply(thresholds, function(thr) {
-		u = rownames(m[which(rowSums(orderm <= thr) > 0), ]);
+		u = rownames(m)[which(rowSums(orderm <= thr) > 0)];
 		length(intersect(u, sel))/length(u)
 		}
 	)
-	
 	prop_df = data.frame(x=thresholds, y=props)
 }
+
+
 
 
 
 ###############
 # OUTPUT 
 ###############
+
+# coordinate file
+
+if (!is.null(opt$out_file)) {
+	write.table(df, file=opt$out_file, row.names=FALSE, quote=FALSE, sep="\t")
+}
 
 # plotting...
 base_size=16
@@ -111,6 +117,7 @@ legend_nrow = 18
 theme_set(theme_bw(base_size=base_size))
 legend_text_inch = theme_get()$legend.text$size * base_size / 72.72
 add_w = legend_text_inch * max(nchar(df$labels)) * ceiling(length(levels(as.factor(df$labels)))/legend_nrow)
+
 
 pdf(sprintf("%s.pdf",output), h=5, w=6+add_w, title=output)
 
@@ -130,7 +137,7 @@ if (!is.null(opt$color_by)) {
 }
 gp = gp + guides(col = guide_legend(nrow = legend_nrow, title=opt$color_by))
 gp = gp + scale_x_log10(expand=c(0,0))
-gp = gp + scale_y_continuous(expand=c(0.01,0))
+gp = gp + scale_y_continuous(expand=c(0.01,0), limits=c(0,1))
 gp = gp + annotation_logticks(sides="b")
 
 if (!is.null(opt$file_sel)) {

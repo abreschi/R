@@ -1,3 +1,4 @@
+#!/usr/bin/env Rscript
 
 ##------------
 ## LIBRARIES
@@ -21,14 +22,15 @@ cbbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#000000", "#F0E442", "#0072B2"
 option_list <- list(
 make_option(c("-A", "--input1"), help="the first matrix of samples"),
 make_option(c("-B", "--input2"), help="the second matrix of samples, columns must have same order as in input1"),
-make_option(c("-t1", "--tag1"), help="short tag describing the first input"),
-make_option(c("-t2", "--tag2"), help="short tag describing the second input"),
+make_option(c("--tag1"), help="short tag describing the first input"),
+make_option(c("--tag2"), help="short tag describing the second input"),
 make_option(c("-L", "--labels"), help="select the labels from the dashboard fields, comma-separated"),
 make_option(c("-l", "--log"), help="apply the log to <both>, <A>, <B>, <none> [default=%default]", default="none"),
 make_option(c("-p", "--pseudocount"), type="double", help=sprintf("specify a pseudocount for the log [default=%s]",pseudocount), default=pseudocount),
 make_option(c("-m", "--metadata"), help="tsv file with metadata on matrix experiment"),
 make_option(c("-r", "--representation"), help="choose <scatter>, <hex> [default=%default]", default="hex"),
 make_option(c("-n", "--replace_na_with_0"), action="store_true", help="replace NAs with 0 [default=%default]", default=FALSE),
+make_option(c("--facet_nrow"), default=NULL, type="integer", help="Number of rows for faceting [default=%default]"),
 make_option(c("-o", "--output"), help="output file name without extension", default='out')
 )
 
@@ -62,14 +64,16 @@ mm2 = melt(cbind(m2, gene=rownames(m2)), value.name="value2", variable.name='lab
 df = merge(mm1, mm2, by=c('gene', 'labExpId'))
 
 # read the metadata
-mdata = read.table(opt$metadata, h=T, sep='\t', row.names=NULL)
-# select only the requested ones
-labels = strsplit(opt$labels, ',')[[1]]
-mdata = unique(mdata[c('labExpId', labels)])
-mdata$labels = apply(mdata[labels], 1, function(x) paste(x, collapse='\n'))
-mdata$labExpId <- sapply(mdata$labExpId, function(x) gsub("[,-]", ".", x))
-# add this info to the data.frame
-df = merge(df, mdata[c('labExpId',"labels")], by='labExpId')
+if (!is.null(opt$metadata)) {
+	mdata = read.table(opt$metadata, h=T, sep='\t', row.names=NULL)
+	# select only the requested ones
+	labels = strsplit(opt$labels, ',')[[1]]
+	mdata = unique(mdata[c('labExpId', labels)])
+	mdata$labels = apply(mdata[labels], 1, function(x) paste(x, collapse='\n'))
+	mdata$labExpId <- sapply(mdata$labExpId, function(x) gsub("[,-]", ".", x))
+	# add this info to the data.frame
+	df = merge(df, mdata[c('labExpId',"labels")], by='labExpId')
+}
 
 if (opt$log=="both") {df$value1 <- log10(df$value1+opt$pseudocount); df$value2 <- log10(df$value2+opt$pseudocount)}
 if (opt$log=="A") {df$value1 <- log10(df$value1+opt$pseudocount)}
@@ -92,13 +96,13 @@ gp = gp + geom_hex(aes(fill=cut(..count..,c(0,1,2,5,10,25,50,75,100,500,Inf))),b
 gp = gp + scale_fill_manual('counts',values=terrain.colors(10))}
 if (opt$representation == "scatter") {
 gp = gp + geom_point(shape=".")}
-gp = gp + facet_wrap(~labels)
+gp = gp + facet_wrap(~labels, nrow=opt$facet_nrow)
 gp = gp + geom_abline(a=1, b=0, col='blue')
 gp = gp + geom_text(aes(x=min(value1,na.rm=T), y=max(value2,na.rm=T)-0.5, label=sprintf("r=%0.3f",pearson)), color='blue', hjust=0)
 gp = gp + labs(x=opt$tag1, y=opt$tag2)
 #gp
-ggsave(filename=sprintf('%s.pdf', opt$output))
-ggsave(filename=sprintf('%s.jpg', opt$output))
+ggsave(filename=sprintf('%s.pdf', opt$output), h=7, w=7)
+ggsave(filename=sprintf('%s.jpg', opt$output), h=7, w=7)
 
 
 

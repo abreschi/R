@@ -14,9 +14,9 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2"
 suppressPackageStartupMessages(library("optparse"))
 
 option_list <- list(
-make_option(c("-u", "--universe"), help="a list of human gene identifiers (ensEMBL ids), NO header"),
+make_option(c("-u", "--universe"), help="a list of gene identifiers (ensEMBL ids), NO header"),
 make_option(c("-G", "--genes"), default="stdin",
-	help="a list of human gene identifiers for the foreground (ensEMBL ids), WITHOUT header [default=%default]"),
+	help="a list of gene identifiers for the foreground (ensEMBL ids), WITHOUT header [default=%default]"),
 make_option(c("-c", "--categ"), help="choose the GO category < BP | MF | CC > [default=%default]", default="BP"),
 make_option(c("-s", "--species"), help="choose the species < human | mouse | dmel > [default=%default]", default="human"),
 make_option(c("-o", "--output"), help="additional tags for otuput [default=%default]", default="out"),

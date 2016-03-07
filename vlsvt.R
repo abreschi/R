@@ -213,6 +213,7 @@ VlsVt.comp <- function(data,min.iso2.RPKM=opt$min.iso2.RPKM,rescale=TRUE,nb.bs=1
     if(length((gene.ids = which(data[,2]==gene)))>1){ ## At least two isoforms
       dat.g = data[gene.ids,-(1:2)]
       iso.RPKM.mean = rowMeans(dat.g,na.rm=TRUE)
+	  iso1.RPKM = sort(iso.RPKM.mean,decreasing=TRUE)[1]
       iso2.RPKM = sort(iso.RPKM.mean,decreasing=TRUE)[2]
       vls.vt = vls2.vt = NA
       if(iso2.RPKM >= min.iso2.RPKM){ ## Second major isoform expressed

@@ -16,9 +16,6 @@ make_option(c("-i", "--input"), default="stdin",
 make_option(c("-o", "--output"), default="cutree.tsv",
 	help="Output file name. Can be stdout [default=%default]"),
 
-make_option(c("--header"), action="store_true", default=FALSE,
-	help="The input matrix has a header [default=%default]"),
-
 make_option(c("-r", "--replace_na"), default=FALSE, action="store_true",
 	help="Replace NAs with 0, before adding the pseudocount and applying the log if asked [default=%default]"),
 
@@ -30,6 +27,12 @@ make_option(c("-p", "--pseudocount"), default=0.001,
 
 make_option(c("-k", "--nb_clusters"), 
 	help="Number of desired clusters [default=%default]"),
+
+make_option(c("--order"), default=FALSE, action="store_true",
+	help="Give only the order of elements without cutting the tree [default=%defult]"),
+
+make_option(c("--index"), action="store_true", default=FALSE,
+	help="Output only the row names and the final index [default=%default]"),
 
 make_option(c("-H", "--cluster_height"), 
 	help="Height for cutting the tree [default=%default]"),
@@ -63,19 +66,14 @@ if (opt$verbose) {print(opt)}
 
 # TODO: cluster the columns
 
-#suppressPackageStartupMessages(library("ggplot2"))
 
 
 ##############
 # BEGIN
 ##############
 
-
-if (opt$input == "stdin") {
-	m = read.table(file("stdin"), h=T)
-} else {
-	m = read.table(opt$input, h=T)
-}
+inF = opt$input; if(opt$input == "stdin") {inF=file("stdin")}
+m = read.table(inF, h=T)
 
 
 if (opt$replace_na) {
@@ -113,17 +111,26 @@ if (opt$margin == 1) {
 # -------------------------- Clustering ------------------------------
 
 klust = hclust(Dist, method=opt$hclust)
-K = cutree(klust, k=opt$nb_clusters, h=opt$cluster_height)
-m$Kmeans = K
+if (opt$order) {
+	K = order(klust$order)
+	#print(klust$labels)
+	#print(klust$order)
+	#print (K)
+	m$K = K
+} else {
+	K = cutree(klust, k=opt$nb_clusters, h=opt$cluster_height)
+	m$K = K
+}
 
 
 
 # OUTPUT
 
-if (opt$output == "stdout") { 
-	output = ""
-} else {
-	output = opt$output
+output = ifelse(opt$output == "stdout", "", opt$output)
+
+if (opt$index) {
+	write.table(m["K"], output, quote=FALSE, col.names=FALSE, row.names=TRUE, sep='\t')
+	q(save='no')
 }
 
 write.table(m, output, quote=FALSE, col.names=TRUE, row.names=TRUE, sep='\t')

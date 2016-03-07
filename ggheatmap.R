@@ -16,6 +16,9 @@ opt$dist = "euclidean"
 opt$hclust = "complete"
 
 
+#options(stringsAsFactors=FALSE)
+
+
 ##################
 # OPTION PARSING
 ##################
@@ -94,6 +97,9 @@ make_option(c("--matrix_legend_title"), default="value",
 make_option(c("--matrix_fill_limits"), 
 	help="Specify limits for the fill scale, e.g. \"\\-1,1\". Escape character for negative numbers [default=%default]"),
 
+make_option(c("-X", "--matrix_text"), default=FALSE, action="store_true",
+	help="Add the text to each cell of the matrix [default=%default]"),
+
 #make_option(c("--matrix_legend_breaks"),
 #	help="Comma-separated breaks for the color scale"),
 #
@@ -156,7 +162,7 @@ theme_update(axis.ticks.length = unit(0.01, "inch"))
 
 # read table
 if (opt$input_matrix == "stdin") {input=file("stdin")} else {input=opt$input_matrix}
-m = read.table(input, h=T, sep="\t")
+m = read.table(input, h=T, sep="\t", comment.char="")
 
 
 # Make valid row and column names
@@ -166,14 +172,14 @@ colnames(m) <- make.names(colnames(m))
 # --- read PALETTE files ----
 
 if (!is.null(opt$rowSide_palette)) {
-	rowSide_palette = as.character(read.table(opt$rowSide_palette, h=F, comment.char="%")$V1)
+	rowSide_palette = as.character(read.table(opt$rowSide_palette, h=F, sep="\t", comment.char="%")$V1)
 	if (opt$verbose) {cat("RowSide Palette:", rowSide_palette, "\n")}
 }
 
 if (!is.null(opt$colSide_palette)) {
 	colSide_palette_files = strsplit(opt$colSide_palette, ",")[[1]]
-	colSide_palette = sapply(colSide_palette_files,function(x)  as.character(read.table(x, h=F, comment.char="%")$V1), simplify=FALSE)
-	if (opt$verbose) {cat("ColSide Palette:", colSide_palette, "\n")}
+	colSide_palette = sapply(colSide_palette_files, function(x)  as.character(read.table(x, h=F, sep="\t", comment.char="%")$V1), simplify=FALSE)
+	#if (opt$verbose) {cat("ColSide Palette:", colSide_palette[1], "\n")}
 }
 
 matrix_palette = as.character(read.table(opt$matrix_palette, h=F, comment.char="%")$V1)
@@ -264,7 +270,7 @@ if (same_mdata) {
 	}
 	
 	if (!is.null(opt$row_metadata)) {
-#		row_mdata[opt$merge_row_mdata_on] <- gsub(",", ".", row_mdata[,opt$merge_row_mdata_on])
+		row_mdata[opt$merge_row_mdata_on] <- gsub("[-,+]", ".", row_mdata[,opt$merge_row_mdata_on])
 		df = merge(df, unique(row_mdata[row_mdata_header]), by.x="Var1", by.y=opt$merge_row_mdata_on)
 		print(dim(row_mdata))
 		if (length(rownames(m)) != length(intersect(rownames(m), row_mdata[,opt$merge_row_mdata_on]))) {
@@ -273,7 +279,6 @@ if (same_mdata) {
 		}
 	}
 }
-
 
 
 
@@ -431,6 +436,9 @@ p1 = p1 + guides(fill=guide_colourbar(
 #if (!is.null(opt$matrix_legend_breaks)) {
 #	p1 = p1 + guides(fill=guide_colourbar(breaks=breaks))
 #}
+if (opt$matrix_text) {
+	p1 = p1 + geom_text( aes( x=Var2, y=Var1, label=value ))
+}
 p1_legend = g_legend(p1)
 p1 = p1 + theme(legend.position = "none")
 
@@ -488,10 +496,10 @@ if (!is.null(opt$rowSide_by)) {
 		} else {
 			RowSide = RowSide + scale_fill_hue()
 		}
-		RowSide = RowSide + theme(plot.margin=unit(c(0.00, 0.00, 0.00, 0.01),"inch"))
 		RowSide = RowSide + labs(x=NULL, y=NULL)
 		RowSide = RowSide + coord_flip()
 		RowSide = RowSide + theme(
+			plot.margin=unit(c(0.00, 0.00, 0.00, 0.01),"inch"),
 			legend.text=element_text(size=0.9*base_size),
 			legend.key.size=unit(0.9*base_size, "points")
 		)
@@ -628,25 +636,34 @@ total_w = matrix_vp_x + matrix_vp_w + 0.25*length(rowSide_by) + max(row_dendro_w
 
 # >>>>> Column and row side legends viewport <<<<<<<<<<<<<<<<<
 
+max_legend_width_inch = 0
 if (!is.null(opt$colSide_by) || !is.null(opt$rowSide_by)) {
-#	legend_width_inch = max(strwidth(unlist(unique(df[c(colSide_by, rowSide_by)])), unit="inch")) + 0.4
-	legend_width_inch = max(sapply(c(ColSide_legends, RowSide_legends), function(x) sum(sapply(x$widths, convertUnit, "in"))))
-	legend_height_inch = total_h/length(c(colSide_by, rowSide_by))
+	legend_padding = 0.10
+	max_legend_width_inch = max(sapply(c(ColSide_legends, RowSide_legends), function(x) sum(sapply(x$widths, convertUnit, "in"))))
+#	legend_height_inch = matrix_vp_h/length(c(colSide_by, rowSide_by))
+#	legend_height_inch = total_h/length(c(colSide_by, rowSide_by))
+	legend_y = matrix_vp_y + matrix_vp_h
 	side_legend_vps = list()
-	for (i in 1:length(c(colSide_by, rowSide_by))) {
+	#for (i in 1:length(c(colSide_by, rowSide_by))) {
+	all_side_legends = c(ColSide_legends, RowSide_legends)
+	for (i in 1:length(all_side_legends)) {
+		legend_height_inch = sum(sapply(all_side_legends[[i]]$heights, convertUnit, "in"))
+		legend_width_inch = sum(sapply(all_side_legends[[i]]$widths, convertUnit, "in"))
 		side_legend_vp = viewport(
-			y = matrix_vp_y + matrix_vp_h + 0.25*length(colSide_by) + col_dendro_h - legend_height_inch*(i-1),
+#			y = matrix_vp_y + matrix_vp_h + 0.25*length(colSide_by) + col_dendro_h - legend_height_inch*(i-1),
 			x = matrix_vp_x + matrix_vp_w + 0.25*length(rowSide_by) + row_dendro_w,
+			y = legend_y - legend_padding,
 			h = legend_height_inch,
 			w = legend_width_inch,
 			default.units = "inch",
 			just = c("left", "top")
 		)
+		legend_y = legend_y - legend_height_inch
 		side_legend_vps[[i]] = side_legend_vp
 	}
-} else { legend_width_inch = 0}
+} 
 
-total_w = total_w + legend_width_inch
+total_w = total_w + max_legend_width_inch
 
 
 # =======================================
@@ -667,7 +684,7 @@ pushViewport(matrix_scale_vp); grid.draw(p1_legend); upViewport()
 if (!is.null(opt$colSide_by)) {
 	for (i in 1:length(ColSide_vps)) {
 		print(ColSides[[i]], vp=ColSide_vps[[i]], newpage=FALSE)
-		grid.text(colSide_by[i], x=unit(1,"npc"), just="right", vp=ColSide_label_vps[[i]], gp=gpar(face="bold"))
+		grid.text(colSide_by[i], x=unit(1, "npc"), just="right", vp=ColSide_label_vps[[i]], gp=gpar(face="bold"))
 	}
 }
 

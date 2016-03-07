@@ -172,7 +172,7 @@ if (!is.null(opt$scale_by)) {
 }
 
 # Round the values for the output
-new_m = round(new_m, 3)
+new_m = round(new_m, 4)
 
 print_rownames = TRUE
 if (length(char_cols) != 0) {new_m <- cbind(genes, new_m); print_rownames=FALSE}

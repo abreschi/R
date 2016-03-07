@@ -1,16 +1,8 @@
-##------------
-## LIBRARIES
-##------------ 
-suppressPackageStartupMessages(library("KEGG.db"))
-suppressPackageStartupMessages(library("org.Hs.eg.db"))
-suppressPackageStartupMessages(library("GOstats"))
+#!/usr/bin/env Rscript
+
+
 suppressPackageStartupMessages(library("optparse"))
-suppressPackageStartupMessages(library("plyr"))
-
-
 options(stringsAsFactors=F)
-pseudocount = 1e-04
-cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7") 
 
 ##################
 # OPTION PARSING
@@ -31,6 +23,14 @@ parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
 arguments <- parse_args(parser, positional_arguments = TRUE)
 opt <- arguments$options
 print(opt)
+
+##------------
+## LIBRARIES
+##------------ 
+suppressPackageStartupMessages(library("KEGG.db"))
+suppressPackageStartupMessages(library("org.Hs.eg.db"))
+suppressPackageStartupMessages(library("GOstats"))
+suppressPackageStartupMessages(library("plyr"))
 
 na2null = function(x) if(is.na(x)) {return(NULL)}else{return(x)}
 

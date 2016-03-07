@@ -18,13 +18,13 @@ opt$cor = "pearson"
 suppressPackageStartupMessages(library("optparse"))
 
 option_list <- list(
-make_option(c("-i", "--input_matrix"), 
-	help="the matrix you want to analyze. \"stdin\" for reading from standard input"),
+make_option(c("-i", "--input_matrix"), default="stdin",
+	help="the matrix you want to analyze. \"stdin\" for reading from standard input [default=%default]"),
 make_option(c("-v", "--verbose"),action="store_true", default=FALSE, 
 	help="if you want detailed output"),
-make_option(c("--log10"), action="store_true", default=FALSE, 
+make_option(c("-l", "--log10"), action="store_true", default=FALSE, 
 	help="apply the log10"),
-make_option(c("-p", "--pseudocount"), type="double", default=1e-04, 
+make_option(c("-p", "--pseudocount"), type="double", default=0,
 	help="specify a pseudocount for the log [default=%default]. NAs are replaced by 0s"),
 make_option(c("-c", "--cor"),
 	help="choose the correlation method"),
@@ -53,11 +53,9 @@ if (opt$verbose) {print(opt)}
 ##############
 
 # read input table
-if (opt$input_matrix == "stdin") {
-	m = read.table(file("stdin"), h=T)
-} else {
-	m = read.table(opt$input_matrix, h=T)
-}
+if (opt$input_matrix == "stdin") {input=file("stdin")} else {input=opt$input_matrix}
+m = read.table(input, h=T)
+
 
 # remove potential gene id columns
 char_cols <- which(sapply(m, class) == 'character')
@@ -71,6 +69,7 @@ if (!(opt$keep_na)) {m = replace(m, is.na(m), 0)}
 # apply the log if required
 if (opt$log10) {m = log10(m + opt$pseudocount)}
 
+
 # compute the correlation
 if (!is.null(opt$cor)) {
 	df = cor(m, use='p', method=opt$cor)
@@ -78,6 +77,8 @@ if (!is.null(opt$cor)) {
 
 # compute the distance
 if (!is.null(opt$dist)) {
+	if (opt$dist == "p") {opt$dist <- "pearson"}
+	if (opt$dist == "s") {opt$dist <- "spearman"}
 	if (opt$dist != "spearman" & opt$dist != "pearson") {
 		df = as.matrix(dist(t(m), method=opt$dist))
 	} else {
@@ -85,9 +86,9 @@ if (!is.null(opt$dist)) {
 	}
 }
 
-dec = 2
+dec = 3
 
-df = round(df, 3)
+df = round(df, dec)
 
 # print the results
 if (opt$output == "stdout") {

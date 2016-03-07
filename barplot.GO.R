@@ -17,36 +17,27 @@ make_option(c("-i", "--input"), default="stdin",
 make_option(c("-o", "--output"), default="barplot.GO.pdf",
 	help="Output file name [default=%default]"),
 
-#make_option(c("-x", "--x_axis"), default=1,
-#	help="Index of the column with values, or labels if you already have counts [default=%default]"),
-#
-#make_option(c("-y", "--y_axis"), default=NULL, type="integer",
-#	help="Index of the column with values, in case x provides counts. This will plot identity. Leave empty for default histogram [default=%default]"),
-#
 make_option(c("--header"), action="store_true", default=FALSE,
 	help="Use this if the input has a header [default=%default]"),
 
-#make_option(c("--position"), default='dodge',
-#	help="Position for histogram [default=%default]"),
-#
-#make_option(c("--scale_x_log10"), action="store_true", default=FALSE,
-#	help="log10-transform x scale [default=%default]"),
-#
-#make_option(c("--scale_y_log10"), action="store_true", default=FALSE,
-#	help="log10-transform y scale [default=%default]"),
-#
-#make_option(c("--y_title"), type="character", default="count",
-#	help="Title for the y axis [default=%default]"),
-#
-#make_option(c("--x_title"), type="character", default="",
-#	help="Title for the x axis [default=%default]"),
-#
-make_option(c("-f", "--fill"), default="dodgerbluee",
-	help="choose the color which you want to fill the histogram with"),
+make_option(c("-f", "--fill"), default="dodgerblue",
+	help="choose the color which you want to fill the histogram with [default=%default]"),
 
-#make_option(c("-c", "--color"), default="white",
-#	help="choose the color which you want to contour the histogram with"),
-#
+make_option(c("-F", "--fill_by"), type='integer', default=NULL, 
+	help="the column with the factor for the color [default=%default]"),
+
+make_option(c("-P", "--palette"), default=NULL, 
+	help="palette file [default=%default]"),
+
+make_option(c("-H", "--height"), default=7,
+	help="Height of the plot in inches [default=%default]"),
+
+make_option(c("-W", "--width"), default=7,
+	help="Width of the plot in inches [default=%default]"),
+
+make_option(c("-B", "--base_size"), default=20,
+	help="Base size [default=%default]"),
+
 make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
 	help="if you want more output [default=%default]")
 
@@ -84,6 +75,12 @@ m = read.table(input, h=opt$header, sep="\t")
 
 df = m
 
+# Read palette file
+if (!is.null(opt$palette)) {
+	palette = read.table(opt$palette, h=F, sep="\t", comment.char="")$V1
+}
+
+
 # Read columns
 y_col = 2
 y_col = colnames(df)[y_col]
@@ -110,7 +107,7 @@ df[,x_col] <- factor(df[,x_col], levels=levs)
 # GGPLOT
 #================
 
-theme_set(theme_bw(base_size=20))
+theme_set(theme_bw(base_size=opt$base_size))
 theme_update(
 	axis.text.x=element_text(angle=45, hjust=1, vjust=1),
 	legend.key = element_rect(color='white'),
@@ -128,13 +125,13 @@ if (is.null(opt$fill_by)) {
 	geom_params$color = opt$color
 }
 
-## specify fill column
-#if (!is.null(opt$fill_by)) {
-#	mapping <- aes_string(fill=F_col)
-#} else {
-#	mapping = NULL
-#}
-mapping = NULL
+# specify fill column
+if (!is.null(opt$fill_by)) {
+	F_col = colnames(df)[opt$fill_by]
+	mapping <- aes_string(fill=F_col)
+} else {
+	mapping = NULL
+}
 
 # define histogram layer 
 histLayer <- layer(
@@ -145,43 +142,15 @@ histLayer <- layer(
     stat = "identity"
 )
 
-opt$width = 7
 
 # start the plot
 gp = ggplot(df, aes_string(x = x_col, y = y_col))
 gp = gp + histLayer
 gp = gp + coord_flip()
-gp = gp + labs(y="-log10(pv)", x=NULL)
-ggsave(opt$output, h=5, w=opt$width, title=opt$output)
+gp = gp + labs(y="-log10(pvalue)", x=NULL)
+if (!is.null(opt$palette)) {
+	gp = gp + scale_fill_manual(values=palette)
+}
+ggsave(opt$output, h=opt$height, w=opt$width, title=opt$output)
 
 q(save='no')
-
-if (!is.character(df[,1])) {
-	avg = mean(df[,1], na.rm=TRUE)
-	med = median(df[,1], na.rm=TRUE)
-	gp = gp + geom_point(aes(x=avg, y=0), size=2)
-	gp = gp + geom_vline(xintercept=med, linetype=2)
-}
-
-# Color scale
-if (!is.null(opt$fill_by)) {
-	if (!is.null(opt$palette)) {
-		gp = gp + scale_fill_manual(values=palette)
-	} else {
-		gp = gp + scale_fill_hue()
-	}
-}
-
-if (!is.null(opt$facet_by)) {
-	gp = gp + facet_wrap(facet_formula)
-}
-
-if (opt$scale_x_log10) {gp = gp + scale_x_log10()}
-if (opt$scale_y_log10) {gp = gp + scale_y_log10()}
-
-gp = gp + labs(y=opt$y_title, x=opt$x_title)
-
-ggsave(opt$output, h=5, w=opt$width, title=opt$output)
-
-# EXIT
-quit(save='no')

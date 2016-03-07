@@ -51,14 +51,20 @@ make_option(c("--y_title"), default="norm_read_density",
 make_option(c("--x_title"), default="position", 
 	help="title for the x-axis [default=%default]"),
 
-make_option(c("--scale_x_log10"), action="store_true", 
+make_option(c("--scale_x_log10"), action="store_true", default=FALSE,
 	help="Change the x axis to log10 [default=%default]"),
+
+make_option(c("--x_limits"), default=NULL,
+	help="Limits for the x axis [default=%default]"),
 
 make_option(c("-P", "--palette"), 
 	help='File with colors for the lines. Leave empty to use even color spacing'),
 
 make_option(c("-H", "--height"), default=5,
 	help="Height of the plot in inches [default=%default]"),
+
+make_option(c("-W", "--width"), default=7,
+	help="Width of the plot in inches [default=%default]"),
 
 make_option(c("-v", "--verbose"), action='store_true', default=FALSE,
 	help="Verbose output [default=%default]")
@@ -95,7 +101,7 @@ if (opt$verbose) {cat("DONE\n\n")}
 
 # Read data
 if (opt$input == "stdin") {input=file('stdin')} else {input=opt$input}
-m = read.table(input, h=opt$header)
+m = read.table(input, h=opt$header, sep="\t")
 if(opt$verbose) {print(head(m))}
 
 # Read palette
@@ -111,6 +117,7 @@ if (!is.null(opt$color_by)) {
 	}
 }
 
+
 #~~~~~~~~~~~~
 # GGPLOT
 #~~~~~~~~~~~~
@@ -118,11 +125,14 @@ if (!is.null(opt$color_by)) {
 theme_set(theme_bw(base_size=20))
 theme_update(
 	panel.grid.minor = element_blank(),
-	panel.grid.major = element_blank()
+	panel.grid.major = element_blank(),
+	legend.key = element_blank()
 )
 
 x = colnames(m)[opt$x_col]
 y = colnames(m)[opt$y_col]
+
+
 
 alpha = opt$alpha
 
@@ -155,7 +165,9 @@ if (is.null(opt$linetype_by)) {
 # >> group <<
 
 if (!is.null(opt$group)) {
+	group = colnames(m)[opt$group]
 	mapping = modifyList(mapping, aes_string(group=colnames(m)[opt$group]))
+	m[,group] <- gsub("\\\\n", "\n", m[,group])
 }
 
 geom_params$alpha = alpha
@@ -201,8 +213,13 @@ if (opt$scale_x_log10) {
 	gp = gp + scale_x_log10()
 }
 
+# Read x limits
+if (!is.null(opt$x_limits)) {
+	x_lim = as.numeric(strsplit(opt$x_limits, ",")[[1]])
+	gp = gp + xlim(x_lim)
+}
 
-ggsave(opt$output, h=opt$height, w=7)
+ggsave(opt$output, h=opt$height, w=opt$width)
 
 # EXIT
 quit(save='no')

@@ -31,8 +31,11 @@ make_option(c("-q", "--quantiles"), default=4, type="integer",
 make_option(c("-s", "--resolve_breaks"), default=FALSE, action="store_true",
 	help="When breaks are not unique, don't crash but create fewer quantiles [default=%default]"),
 
-make_option(c("-b", "--breaks"), default="-Inf,1,2,3,Inf", 
-	help="Breaks for the intervals, comma-separated [default=%default]"), 
+make_option(c("-b", "--breaks"), default="c(-Inf,1,2,3,Inf)", 
+	help="Breaks for the intervals, comma-separated, with c notation [default=%default]"), 
+
+make_option(c("--paste"), action="store_true", default=FALSE,
+	help="Paste index and interval in a unique column [default=%default]"),
 
 make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
 	help="if you want more output [default=%default]")
@@ -63,11 +66,14 @@ formatInterval = function(interval) {
 
 	interval = as.character(interval)
 	if (length(grep("-Inf", interval) != 0)) {
-		outInterval = sprintf("<= %s", gsub("\\)", "", strsplit(interval, split=",")[[1]][2]))
+		string = strsplit(interval, split=",")[[1]][2]
+		outInterval = sprintf("<=%s", gsub("[\\)\\]]", "", string, perl=TRUE))
+		#outInterval = sprintf("<=%s", gsub("\\)", "", strsplit(interval, split=",")[[1]][2]))
 		return(outInterval)
 	}
 	if (length(grep("Inf", interval) != 0)) {
-		outInterval = sprintf("> %s", gsub("\\(", "", strsplit(interval, split=",")[[1]][1]))
+		string = strsplit(interval, split=",")[[1]][1]
+		outInterval = sprintf(">%s", gsub("[\\(\\[]", "", string, perl=TRUE))
 		return(outInterval)
 	}
 
@@ -86,12 +92,10 @@ formatInterval = function(interval) {
 
 # Read data
 
-if (opt$input == "stdin") {
-	m = read.table(file("stdin"), h=opt$header) 
-} else {
-	m = read.table(opt$input, h=opt$header)
-}
+if (opt$input == "stdin") {inF = file("stdin")} else {inF = opt$input}
+m = read.table(inF, h=opt$header, sep="\t") 
 
+pasteSEP= ":"
 
 # Quantiles
 
@@ -99,6 +103,7 @@ if (opt$method == "quantiles") {
 
 quantile_header = sprintf("quantile_%s", colnames(m)[opt$column])
 quant_index_header = sprintf("quant_index_%s", colnames(m)[opt$column])
+quantile_paste_header = sprintf("quant_paste_%s", colnames(m)[opt$column])
 
 if (opt$resolve_breaks) {
 	breaks <- c(unique(quantile(m[,opt$column], probs=seq(0,1,1/opt$quantiles), na.rm=T)))
@@ -109,6 +114,12 @@ if (opt$resolve_breaks) {
 	m[,quant_index_header] = as.numeric(cut_number(m[,opt$column], opt$quantile))
 }
 
+if (opt$paste) {
+	m[,	quantile_paste_header] <- with(m, paste(quant_index_header, quantile_header, sep=pasteSEP)) 
+	m[, quantile_header] <- NULL; m[, quant_index_header] <- NULL
+}
+
+
 }
 
 # Intervals
@@ -117,13 +128,19 @@ if (opt$method == "breaks") {
 
 interval_header = sprintf("interval_%s", colnames(m)[opt$column])
 interval_index_header = sprintf("interval_index_%s", colnames(m)[opt$column])
+interval_paste_header = sprintf("interval_paste_%s", colnames(m)[opt$column])
 
-breaks = as.numeric(strsplit(opt$breaks, split=",")[[1]])
-m[,interval_header] = cut(m[,opt$column], breaks=breaks, include.lowest=TRUE, right=TRUE)
+breaks = eval(parse(text=opt$breaks))
+m[,interval_header] = cut(m[,opt$column], breaks=breaks, include.lowest=TRUE, right=TRUE, dig.lab=4)
 m[,interval_index_header] = cut(m[,opt$column], breaks=breaks, include.lowest=TRUE, right=TRUE, labels=FALSE)
 
 # Format the interval
 m[,interval_header] = sapply(m[,interval_header], formatInterval)
+
+if (opt$paste) {
+	m[,	interval_paste_header] <- paste( as.character( m[, interval_index_header] ), m[, interval_header], sep=pasteSEP)
+	m[, interval_header] <- NULL; m[, interval_index_header] <- NULL
+}
 
 }
 

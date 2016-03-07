@@ -80,7 +80,7 @@ stats = stats[match(stats[,1], rownames(m)),]
 
 # Normalize the variance by the maximum variance
 variancen = stats[,2]/max(stats[,2], na.rm=T)
-print(head(variancen))
+#print(head(variancen))
 names(variancen) <- stats[,1]
 
 # Function to compute the alpha_2 measure
@@ -93,6 +93,8 @@ proj_scores = array(numeric(0))
 
 # Iterate over different variance thresholds
 for (var_t in var_thresholds) {
+
+	if (opt$verbose) {cat("Variance threshold: ", var_t, "\n")}
 
 	# Get the actual submatrix for this variance threshold
 	m_t = m[which(variancen>var_t),]

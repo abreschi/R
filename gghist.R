@@ -41,8 +41,8 @@ make_option(c("--y_title"), type="character", default="count",
 make_option(c("--x_title"), type="character", default=NULL,
 	help="Title for the x axis [default=%default]"),
 
-make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
-	help="if you want more output [default=%default]"),
+make_option(c("--title"), type="character", default=NULL,
+	help="Title for the plot [default=%default]"),
 
 make_option(c("-f", "--fill"), default="aquamarine",
 	help="choose the color which you want to fill the histogram with"),
@@ -53,17 +53,35 @@ make_option(c("-c", "--color"), default="white",
 make_option(c("-F", "--fill_by"), type='numeric',
 	help="the column index with the factor to fill by. Leave empty for no factor."),
 
+make_option(c("-A", "--alpha_by"), type='numeric',
+	help="the column index with the factor to fill by. Leave empty for no factor."),
+
 make_option(c("-P", "--palette"), 
-        help='File with colors for the lines. Leave empty to use even color spacing'),
+    help='File with colors for the lines. Leave empty to use even color spacing'),
+
+make_option(c("--sort"), action="store_true", default=FALSE,
+	help="Sort the columns in decreasing order [default=%default]"),
 
 make_option(c("--facet_by"), type='numeric',
 	help="the column index with the factor to facet by. Leave empty for no factor."),
 
+make_option(c("--facet_scale"), type='character', default="fixed",
+	help="the scale of faceting: <fixed|free|free_y|free_x> [default=%default]"),
+
+make_option(c("--facet_nrow"), type="numeric", 
+	help="Number of row for faceting. Leave empty for auto [default=%default]"),
+
 make_option(c("-W", "--width"), default=7,
 	help="width of the plot in inches. [default=%default]"),
 
+make_option(c("-H", "--height"), default=5,
+	help="height of the plot in inches. [default=%default]"),
+
 make_option(c("-b", "--binwidth"), type="double", 
-	help="Specify binwidth. Leave empty for default")
+	help="Specify binwidth. Leave empty for default"),
+
+make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
+	help="if you want more output [default=%default]")
 
 )
 
@@ -94,17 +112,17 @@ if (opt$verbose) {cat("DONE\n\n")}
 
 # Read data
 if (opt$input == "stdin") {input=file("stdin")} else {input=opt$input}
-m = read.table(input, sep="\t", h=opt$header) 
+m = read.table(input, sep="\t", h=opt$header, quote=NULL) 
 
 df = m
 
 # Read facet
-if (!is.null(opt$facet_by)) {facet_formula = as.formula(sprintf("~%s", colnames(df)[opt$facet]))}
-
+if (!is.null(opt$facet_by)) {facet_formula = as.formula(sprintf("~%s", colnames(df)[opt$facet_by]))}
 # Read columns
 x_col = colnames(df)[opt$x_axis]
 if (!is.null(opt$y_axis)) {y_col = colnames(df)[opt$y_axis]}
 if (!is.null(opt$fill_by)) {F_col = colnames(df)[opt$fill_by]}
+if (!is.null(opt$alpha_by)) {A_col = colnames(df)[opt$alpha_by]}
 
 # Read palette
 if (!is.null(opt$palette)) {
@@ -119,7 +137,6 @@ if (is.character(df[,x_col])) {
 #================
 # GGPLOT
 #================
-
 
 theme_set(theme_bw(base_size=20))
 theme_update(
@@ -142,19 +159,45 @@ if (!is.null(opt$binwidth)) {
 	stat_params$binwidth = opt$binwidth
 }
 
-geom_params = list()
+# Sort bars by abundance
+if (opt$sort) {
+	if (is.null(opt$y_axis)) {
+		lev = levels(as.factor(df[,x_col]))[order(table(df[,x_col]), decreasing=TRUE)]
+		df[x_col] <- factor(df[,x_col], levels=lev)
+	}
+	if (!is.null(opt$y_axis)) {
+		lev = df[order(df[,y_col], decreasing=TRUE), x_col]   # have to remove duplicated x
+		df[x_col] <- factor(df[,x_col], levels=lev)
+	}
+}
 
-if (is.null(opt$fill_by)) {
-	geom_params$fill = opt$fill
-	geom_params$color = opt$color
+# Params
+geom_params = list()
+geom_params$color = opt$color
+
+mapping = list()
+
+mapping <- modifyList(mapping, aes_string(x=x_col))
+
+if (!is.null(opt$y_axis)) {
+	mapping <- modifyList(mapping, aes_string(y=y_col))
 }
 
 # specify fill column
 if (!is.null(opt$fill_by)) {
-	mapping <- aes_string(fill=F_col)
+	mapping <- modifyList(mapping, aes_string(fill=F_col, order=F_col))
 } else {
-	mapping = NULL
+	geom_params$fill = opt$fill
+#	mapping = NULL
 }
+
+# specify alpha column
+if (!is.null(opt$alpha_by)) {
+	mapping <- modifyList(mapping, aes_string(alpha=A_col))
+} 
+
+
+class(mapping) <- "uneval"
 
 # define histogram layer 
 histLayer <- layer(
@@ -168,15 +211,9 @@ histLayer <- layer(
 
 
 # start the plot
-if (is.null(opt$y_axis)) {
-	gp = ggplot(df, aes_string(x = x_col))
-} else {
-	gp = ggplot(df, aes_string(x = x_col, y = y_col))
-}
+gp = ggplot(df) + histLayer
 
-gp = gp + histLayer
-
-if (!is.character(df[,x_col])) {
+if (!is.character(df[,x_col]) & !is.factor(df[,x_col])) {
 	avg = mean(df[,x_col], na.rm=TRUE)
 	med = median(df[,x_col], na.rm=TRUE)
 	gp = gp + geom_point(aes(x=avg, y=0), size=2)
@@ -191,19 +228,23 @@ if (!is.null(opt$fill_by)) {
 		gp = gp + scale_fill_hue()
 	}
 }
-
 if (!is.null(opt$facet_by)) {
-	gp = gp + facet_wrap(facet_formula)
+	gp = gp + facet_wrap(facet_formula, scales=opt$facet_scale, nrow=opt$facet_nrow)
 }
 
 if (opt$scale_x_log10) {gp = gp + scale_x_log10()}
 if (opt$scale_y_log10) {gp = gp + scale_y_log10()}
 
 if (!is.null(opt$x_title)) {gp = gp + labs(x=opt$x_title)}
+if (!is.null(opt$title)) {gp = gp + ggtitle(opt$title)}
 
 gp = gp + labs(y=opt$y_title)
 
-ggsave(opt$output, h=5, w=opt$width, title=opt$output)
+#gp = gp + geom_density(aes_string(x=x_col))
+
+#gp = gp + scale_y_continuous(limits=c(0,20000))
+
+ggsave(opt$output, h=opt$height, w=opt$width, title=opt$output)
 
 # EXIT
 quit(save='no')

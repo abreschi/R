@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-options(stringsAsFactors=F)
+options(stringsAsFactors=FALSE)
 
 ##################
 # OPTION PARSING
@@ -19,20 +19,26 @@ make_option(c("-o", "--output"), default="ggboxplot.pdf",
 make_option(c("--header"), action="store_true", default=FALSE, 
 	help="The file has header [default=%default]"),
 
+make_option(c("--xy"), type='character', default="1,2",
+	help="Column indeces of the x and y axes, respectively, comma-separated [default=%default]"),
+
 make_option(c("-c", "--color_by"), type='numeric',
 	help="Column index with the color factor. Leave empty for no color"),
 
 make_option(c("-f", "--fill_by"), type='numeric', 
 	help="Column index of the fill factor, Leave empty for no fill"),
 
-make_option(c("--xy"), type='character', default="1,2",
-	help="Column indeces of the x and y axes, respectively, comma-separated [default=%default]"),
-
-make_option(c("-r", "--representation"), default="boxplot",
-	help="Choose representation [default=%default]"),
+make_option(c("-r", "--layers"), default="boxplot",
+	help="Choose layers to add on the plot (comma-separated): < boxplot | violin | jitter > [default=%default]"),
 
 make_option(c("--facet_by"), type="integer", 
 	help="column index to facet"),
+
+make_option(c("--facet_scale"), default="fixed",
+	help="Scale for faceting [default=%default]"),
+
+make_option(c("--facet_nrow"), type="integer",
+	help="Number of rows in facet wrap [default=%default]"),
 
 make_option(c("--log"), action="store_true", default=FALSE,
 	help="apply the log to the y-axis [default=%default]"),
@@ -49,6 +55,9 @@ make_option(c("--y_title"),
 make_option(c("--x_title"), 
 	help="title for the x-axis. Leave empty for no title"),
 
+make_option(c("--y_limits"), 
+	help="Specify limits for the y axis, e.g. \"\\-1,1\". Escape character for negative numbers [default=%default]"),
+
 make_option(c("-P", "--palette"), 
 	help='File with colors for the lines. Leave empty to use even color spacing'),
 
@@ -57,6 +66,9 @@ make_option(c("-W", "--width"), default=7,
 
 make_option(c("-H", "--height"), default=5,
 	help='Height of the plot in inches [default=%default]'),
+
+make_option(c("--x_order"), default=NULL,
+	help="File with the order of x labels [default=%default]"),
 
 make_option(c("-v", "--verbose"), action='store_true', default=FALSE,
 	help="Verbose output [default=%default]")
@@ -67,7 +79,7 @@ make_option(c("-v", "--verbose"), action='store_true', default=FALSE,
 parser <- OptionParser(
 	usage = "%prog [options] file", 
 	option_list = option_list,
-	description = "From a column file, plot a column vs another as lines"
+	description = "From a column file, plot a boxplot or a violin plot"
 )
 
 
@@ -94,7 +106,7 @@ if (opt$verbose) {cat("DONE\n\n")}
 
 # Read data
 if (opt$input == "stdin") {input=file('stdin')} else {input=opt$input}
-m = read.table(input, h=opt$header)
+m = read.table(input, h=opt$header, sep="\t")
 if(opt$verbose) {print(head(m))}
 
 # Read the axes
@@ -125,6 +137,14 @@ if (!is.null(opt$palette)) {
 # )
 # sign_df = data.frame(x=levs[-length(levs)], text=format(pv, digits=2))
 
+# Replace newlines if present in character columns
+
+charCols = sapply(m, class) == "character"
+for (i in colnames(m)[charCols]) {
+	m[,i] <- gsub("\\\\n", "\n", m[,i])
+}
+
+
 #~~~~~~~~~~~~
 # GGPLOT
 #~~~~~~~~~~~~
@@ -134,7 +154,8 @@ theme_update(
 	panel.grid.minor = element_blank(),
 	panel.grid.major = element_blank(),
 	legend.key = element_blank(),
-	plot.title = element_text(vjust=1)
+	plot.title = element_text(vjust=1),
+	axis.title.y = element_text(vjust=1.4,angle=90)
 )
 
 
@@ -150,21 +171,27 @@ geom_params$alpha = alpha
 geom_params$size = 1
 geom_params$outliers.colour = NULL
 
-boxplotLayer <- layer(
-	geom = "boxplot",
-	geom_params = geom_params,
-	mapping = mapping
-)
+
+# Read x order
+if (!is.null(opt$x_order)) {
+	x_order = read.table(opt$x_order, h=F)[,1]
+	m[,x] = factor(m[,x], levels=x_order)
+}
 
 
 # plot 
 gp = ggplot(m, aes_string(x=x, y=y))
-if (opt$representation == "boxplot") { 
-	gp = gp + boxplotLayer
+
+layers = strsplit(opt$layers, split=",")[[1]]
+for (l in layers) {
+	plotLayer <- layer(
+		geom = l,
+		geom_params = geom_params,
+		mapping = mapping
+	)
+	gp = gp + plotLayer
 }
-if (opt$representation == "violin") {
-	gp = gp + geom_violin(aes_string(color=color_by, fill=fill_by), alpha=alpha, size=1)
-}
+
 gp = gp + labs(title=opt$title, y=opt$y_title, x=opt$x_title)
 gp = gp + theme(axis.text.x=element_text(angle=45, hjust=1))
 
@@ -181,13 +208,19 @@ if (!is.null(opt$palette)) {
 	gp = gp + scale_color_hue()
 }
 
+y_limits = NULL	
+if (!is.null(opt$y_limits)) {
+	opt$y_limits = gsub("\\", "", opt$y_limits, fixed=TRUE)
+	y_limits = as.numeric(strsplit(opt$y_limits, ",")[[1]])
+} 
+gp = gp + scale_y_continuous(limits=y_limits)
+
 # Read facet
 if (!is.null(opt$facet_by)) {
 	facet_col = colnames(m)[opt$facet_by]
 	facet_form = as.formula(sprintf("~%s", facet_col))
-	gp = gp + facet_wrap(facet_form)
+	gp = gp + facet_wrap(facet_form, scales=opt$facet_scale, nrow=opt$facet_nrow)
 }
-#gp = gp + geom_text(data=sign_df, aes(x=x, y=1, label=text), hjust=-0.5)
 
 ggsave(opt$output, h=opt$height, w=opt$width)
 
