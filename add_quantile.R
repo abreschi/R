@@ -144,7 +144,7 @@ m[,interval_header] = sapply(m[,interval_header], formatInterval)
 if (opt$paste) {
 	m[,	interval_paste_header] <- paste( as.character( m[, interval_index_header] ), m[, interval_header], sep=pasteSEP)
 	if (max(m[,interval_index_header]) > 9 & max(m[,interval_index_header]) < 100) {
-		m[m[,interval_index_header]<9, interval_paste_header] <- paste0("0", m[m[,interval_index_header]<9, interval_paste_header])
+		m[m[,interval_index_header]<10, interval_paste_header] <- paste0("0", m[m[,interval_index_header]<10, interval_paste_header])
 	}
 	m[, interval_header] <- NULL; m[, interval_index_header] <- NULL
 }
