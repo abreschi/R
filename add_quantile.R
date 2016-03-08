@@ -114,8 +114,12 @@ if (opt$resolve_breaks) {
 	m[,quant_index_header] = as.numeric(cut_number(m[,opt$column], opt$quantile))
 }
 
+
 if (opt$paste) {
 	m[,	quantile_paste_header] <- with(m, paste(quant_index_header, quantile_header, sep=pasteSEP)) 
+#	if (max(m[,quant_index_header]) > 9 & max(m[,quant_index_header]) < 100) {
+#		m[m$quant_index_header<9, quantile_paste_header] <- with(m{}, paste0("0", quantile_paste_header))
+#	}
 	m[, quantile_header] <- NULL; m[, quant_index_header] <- NULL
 }
 
@@ -139,6 +143,9 @@ m[,interval_header] = sapply(m[,interval_header], formatInterval)
 
 if (opt$paste) {
 	m[,	interval_paste_header] <- paste( as.character( m[, interval_index_header] ), m[, interval_header], sep=pasteSEP)
+	if (max(m[,interval_index_header]) > 9 & max(m[,interval_index_header]) < 100) {
+		m[m[,interval_index_header]<9, interval_paste_header] <- paste0("0", m[m[,interval_index_header]<9, interval_paste_header])
+	}
 	m[, interval_header] <- NULL; m[, interval_index_header] <- NULL
 }
 
