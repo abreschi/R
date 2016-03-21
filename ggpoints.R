@@ -187,7 +187,14 @@ if (!is.null(opt$palette)) {
 		gp = gp + scale_color_gradientn(colours=palette)
 	}
 }
-gp = gp + labs(x=opt$x_title, y=opt$y_title, title=plot_title)
+
+opt$x_title = gsub('\\\\n', "\n", opt$x_title)
+opt$y_title = gsub('\\\\n', "\n", opt$y_title)
+gp = gp + labs(
+	x=opt$x_title, 
+	y=opt$y_title, 
+	title=plot_title
+)
 
 # Facet
 
