@@ -11,25 +11,10 @@ suppressPackageStartupMessages(library("optparse"))
 option_list <- list(
 
 make_option(c("-i", "--input"), default="stdin",
-	help="File or stdin [default=%default]"),
+	help="Input matrix (R-friendly, the header has n-1 columns [default=%default]"),
 
-make_option(c("-o", "--output"), default="anova.out.tsv",
-	help="Output file name. Can be stdout [default=%default]"),
-
-make_option(c("-r", "--replace_NA"), default=FALSE, action="store_true",
-	help="Replace NA with 0 [default=%default]"),
-
-make_option(c("-m", "--metadata"),
-	help="Matrix with the metadata"),
-
-make_option(c("--merge_mdata_on"), default="labExpId",
-	help="Metadata field which contains the column names of the input matrix [default=%default]"),
-
-make_option(c("-F", "--factors"), 
-	help="Factors for anova (right part of the formula), can also be interactions, e.g. value~cell+organism"),
-
-make_option(c("--p_adj"), default="BH",
-	help="Method for correcting the pvalue for multiple testing [default=%default]"),
+make_option(c("-o", "--output"), default="stdout",
+	help="Output file name. [default=%default]"),
 
 make_option(c("-l", "--log10"), action="store_true", default=FALSE,
 	help="Apply the log10 to the whole matrix as pre-processing step [default=%default]"),	
@@ -37,17 +22,41 @@ make_option(c("-l", "--log10"), action="store_true", default=FALSE,
 make_option(c("-p", "--pseudocount"), default=0.01,
 	help="Pseudocount to add when applying the log [default=%default]"),
 
+make_option(c("-r", "--replace_NA"), default=FALSE, action="store_true",
+	help="Replace NA with 0 [default=%default]"),
+
+make_option(c("-m", "--metadata"),
+	help="Matrix with the metadata. It contains the information about the columns of the input matrix"),
+
+make_option(c("--merge_mdata_on"), default="labExpId",
+	help="Metadata field which contains the column names of the input matrix [default=%default]"),
+
+make_option(c("-F", "--factors"), 
+	help="Factors for anova (right part of the formula after \"~\"), can also be interactions, e.g. value~cell+organism"),
+
+make_option(c("--p_adj"), default="BH",
+	help="Method for correcting the pvalue for multiple testing [default=%default]"),
+
 make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
 	help="if you want more output [default=%default]")
 )
 
-parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
+parser <- OptionParser(
+	usage = "%prog [options] file", 
+	option_list=option_list,
+	description = "
+	Computes anova for each row of the input matrix given a design model. 
+	The SS for each factor of the design can be used to compute the 
+	proportion of variance explained by that factor
+
+	Requires package \"reshape2\"
+	"
+)
 arguments <- parse_args(parser, positional_arguments = TRUE)
 opt <- arguments$options
 if (opt$verbose) {print(opt)}
 
 
-suppressPackageStartupMessages(library("ggplot2"))
 suppressPackageStartupMessages(library("reshape2"))
 
 
