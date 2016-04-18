@@ -99,6 +99,11 @@ suppressPackageStartupMessages(library("grid"))
 # read input tables
 inF = opt$input_matrix; if (opt$input_matrix == "stdin") {inF = file("stdin")}
 m = read.table(inF, h=T, sep="\t")
+if (opt$verbose) {
+	cat("Sample of input matrix:\n")
+	print(head(m[,1:10]))
+}
+
 
 # Read the color palette
 my_palette = read.table(opt$palette, h=F, comment.char="%")$V1
@@ -146,7 +151,7 @@ if (is.na(opt$shape_by)) {shape_by=NULL
 
 # read metadata, one or more table to be merged on labExpId
 if (!is.null(opt$metadata)){
-	mdata = read.table(opt$metadata, h=T, sep="\t", row.names=NULL);
+	mdata = read.table(opt$metadata, h=T, sep="\t", row.names=NULL, comment.char="", quote="");
 	if (opt$merge_mdata_on %in% colnames(mdata)) {
 		mdata[,opt$merge_mdata_on] <- gsub("[,-]", ".", mdata[,opt$merge_mdata_on])
 	}
