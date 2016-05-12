@@ -1,6 +1,7 @@
 #!/usr/bin/env Rscript
 
 options(stringsAsFactors=FALSE)
+set.seed(123)
 
 ##################
 # OPTION PARSING
@@ -184,12 +185,37 @@ gp = ggplot(m, aes_string(x=x, y=y))
 
 layers = strsplit(opt$layers, split=",")[[1]]
 for (l in layers) {
+	if (l == "boxplot") {
+		geom = "boxplot"
+		stat = "boxplot"
+		position = "dodge"
+	}
+	if (l == "jitter") {
+		geom = "point"
+		stat = "identity"
+		position = "jitter"
+	}
 	plotLayer <- layer(
-		geom = l,
-		geom_params = geom_params,
-		mapping = mapping
+		geom = geom,
+		stat = stat,
+		params = geom_params,
+		mapping = mapping,
+		position = position
 	)
 	gp = gp + plotLayer
+}
+
+
+if (!is.null(opt$y_title)) {
+	opt$y_title = gsub("\\\\n", "\n", opt$y_title)
+}
+
+if (!is.null(opt$x_title)) {
+	opt$x_title = gsub("\\\\n", "\n", opt$x_title)
+}
+
+if (!is.null(opt$title)) {
+	opt$title = gsub("\\\\n", "\n", opt$title)
 }
 
 gp = gp + labs(title=opt$title, y=opt$y_title, x=opt$x_title)

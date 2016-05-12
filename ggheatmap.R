@@ -171,9 +171,15 @@ colnames(m) <- make.names(colnames(m))
 
 # --- read PALETTE files ----
 
+#if (!is.null(opt$rowSide_palette)) {
+#	rowSide_palette = as.character(read.table(opt$rowSide_palette, h=F, sep="\t", comment.char="%")$V1)
+#	if (opt$verbose) {cat("RowSide Palette:", rowSide_palette, "\n")}
+#}
+
 if (!is.null(opt$rowSide_palette)) {
-	rowSide_palette = as.character(read.table(opt$rowSide_palette, h=F, sep="\t", comment.char="%")$V1)
-	if (opt$verbose) {cat("RowSide Palette:", rowSide_palette, "\n")}
+	rowSide_palette_files = strsplit(opt$rowSide_palette, ",")[[1]]
+	rowSide_palette = sapply(rowSide_palette_files, function(x)  as.character(read.table(x, h=F, sep="\t", comment.char="%")$V1), simplify=FALSE)
+	#if (opt$verbose) {cat("ColSide Palette:", colSide_palette[1], "\n")}
 }
 
 if (!is.null(opt$colSide_palette)) {
@@ -222,7 +228,11 @@ if (!is.null(opt$row_metadata)) {
 
 }
 
-# read which fields are needed from the metadata
+# --------------
+# Palette files
+# --------------
+
+# Columns
 if (!is.null(opt$colSide_by)) {
 	colSide_by = strsplit(opt$colSide_by, ",")[[1]]
 	# Check that there are enough color palettes for the column
@@ -233,9 +243,27 @@ if (!is.null(opt$colSide_by)) {
 			cat("ERROR: Inconsistent number of column factors and palettes\n");	q(save='no')}
 	}
 } else {
-	colSide_by = NULL}
+	colSide_by = NULL
+}
 
-if (!is.null(opt$rowSide_by)) {rowSide_by = strsplit(opt$rowSide_by, ",")[[1]]} else {rowSide_by = NULL}
+# Rows
+if (!is.null(opt$rowSide_by)) {
+	rowSide_by = strsplit(opt$rowSide_by, ",")[[1]]
+	# Check that there are enough color palettes for the column
+	if (!is.null(opt$rowSide_palette)) {
+		if (length(rowSide_palette) == 1) {
+			rowSide_palette = rep(rowSide_palette, length(rowSide_by))}
+		if (length(rowSide_palette) >1 && length(rowSide_palette) != length(rowSide_by))	{
+			cat("ERROR: Inconsistent number of column factors and palettes\n");	q(save='no')}
+	}
+} else {
+	rowSide_by = NULL
+}
+
+#if (!is.null(opt$rowSide_by)) {rowSide_by = strsplit(opt$rowSide_by, ",")[[1]]} else {rowSide_by = NULL}
+
+# read which fields are needed from the metadata
+
 if (!is.null(opt$col_labels) && opt$col_labels != "none") {col_label_fields = strsplit(opt$col_labels,",")[[1]]} else {col_label_fields=NULL}
 if (!is.null(opt$row_labels) && opt$row_labels != "none") {row_label_fields = strsplit(opt$row_labels,",")[[1]]} else {row_label_fields=NULL}
 
@@ -281,9 +309,8 @@ if (same_mdata) {
 }
 
 
-
 if (opt$verbose) {cat("merged metadata\n")}
-
+if (opt$verbose) {print(head(df))}
 
 # ---------------- Dendrogram ----------------------
 
@@ -452,7 +479,8 @@ if (!is.null(opt$colSide_by)) {
 	for (colSide in colSide_by) {
 		colSide_data = unique(df[c("Var2", colSide)])
 		ColSide = ggplot(colSide_data, aes(x=Var2, y="a"))
-		ColSide = ColSide + geom_tile(aes_string(fill=colSide), color="black")
+#		ColSide = ColSide + geom_tile(aes_string(fill=colSide), color="black")
+		ColSide = ColSide + geom_tile(aes_string(fill=colSide))
 		ColSide = ColSide + scale_x_discrete(limits = col_limits, labels=NULL, expand=c(0,0))
 		ColSide = ColSide + scale_y_discrete(labels=NULL, expand=c(0,0))
 		if (!is.null(opt$colSide_palette)) {
@@ -460,9 +488,9 @@ if (!is.null(opt$colSide_by)) {
 		} else {
 			ColSide = ColSide + scale_fill_hue()
 		}
-		ColSide = ColSide + theme(plot.margin=unit(c(0.00, 0.00, 0.00, 0.01),"inch"))
 		ColSide = ColSide + labs(x=NULL, y=NULL)
 		ColSide = ColSide + theme(
+			plot.margin=unit(c(0.00, 0.00, 0.00, 0.01),"inch"),
 			legend.text=element_text(size=0.9*base_size),
 			legend.key.size=unit(0.9*base_size, "points")
 		)
@@ -492,7 +520,8 @@ if (!is.null(opt$rowSide_by)) {
 		RowSide = RowSide + scale_x_discrete(limits = row_limits, labels=NULL, expand=c(0,0))
 		RowSide = RowSide + scale_y_discrete(labels=NULL, expand=c(0,0))
 		if (!is.null(opt$rowSide_palette)) {
-			RowSide = RowSide + scale_fill_manual(values=rowSide_palette)
+#			RowSide = RowSide + scale_fill_manual(values=rowSide_palette)
+			RowSide = RowSide + scale_fill_manual(values=rowSide_palette[[i]])
 		} else {
 			RowSide = RowSide + scale_fill_hue()
 		}

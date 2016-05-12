@@ -53,6 +53,9 @@ make_option(c("-c", "--color"), default="white",
 make_option(c("-F", "--fill_by"), type='numeric',
 	help="the column index with the factor to fill by. Leave empty for no factor."),
 
+make_option(c("-C", "--color_by"), type='numeric',
+	help="the column index with the factor to color by. Leave empty for no factor."),
+
 make_option(c("-A", "--alpha_by"), type='numeric',
 	help="the column index with the factor to fill by. Leave empty for no factor."),
 
@@ -122,6 +125,7 @@ if (!is.null(opt$facet_by)) {facet_formula = as.formula(sprintf("~%s", colnames(
 x_col = colnames(df)[opt$x_axis]
 if (!is.null(opt$y_axis)) {y_col = colnames(df)[opt$y_axis]}
 if (!is.null(opt$fill_by)) {F_col = colnames(df)[opt$fill_by]}
+if (!is.null(opt$color_by)) {C_col = colnames(df)[opt$color_by]}
 if (!is.null(opt$alpha_by)) {A_col = colnames(df)[opt$alpha_by]}
 
 # Read palette
@@ -173,7 +177,13 @@ if (opt$sort) {
 
 # Params
 geom_params = list()
-geom_params$color = opt$color
+#geom_params$color = opt$color
+#geom_params$closed = c("right", "left")
+#geom_params$include.lowest=TRUE
+
+# specify binwidth
+geom_params$binwidth = opt$binwidth
+
 
 mapping = list()
 
@@ -188,7 +198,13 @@ if (!is.null(opt$fill_by)) {
 	mapping <- modifyList(mapping, aes_string(fill=F_col, order=F_col))
 } else {
 	geom_params$fill = opt$fill
-#	mapping = NULL
+}
+
+# specify color column
+if (!is.null(opt$color_by)) {
+	mapping <- modifyList(mapping, aes_string(color=F_col, order=F_col))
+} else {
+	geom_params$color = opt$color
 }
 
 # specify alpha column
@@ -202,11 +218,10 @@ class(mapping) <- "uneval"
 # define histogram layer 
 histLayer <- layer(
     geom = "bar",
-    geom_params = geom_params,
+    params = geom_params,
 	position = opt$position,
 	mapping = mapping,
-    stat = stat,
-    stat_params = stat_params
+    stat = stat
 )
 
 
@@ -220,12 +235,21 @@ if (!is.character(df[,x_col]) & !is.factor(df[,x_col])) {
 	gp = gp + geom_vline(xintercept=med, linetype=2)
 }
 
-# Color scale
+# Fill scale
 if (!is.null(opt$fill_by)) {
 	if (!is.null(opt$palette)) {
 		gp = gp + scale_fill_manual(values=palette)
 	} else {
 		gp = gp + scale_fill_hue()
+	}
+}
+
+# Color scale
+if (!is.null(opt$color_by)) {
+	if (!is.null(opt$palette)) {
+		gp = gp + scale_color_manual(values=palette)
+	} else {
+		gp = gp + scale_color_hue()
 	}
 }
 if (!is.null(opt$facet_by)) {
@@ -239,6 +263,8 @@ if (!is.null(opt$x_title)) {gp = gp + labs(x=opt$x_title)}
 if (!is.null(opt$title)) {gp = gp + ggtitle(opt$title)}
 
 gp = gp + labs(y=opt$y_title)
+
+gp = gp + coord_cartesian(expand=FALSE)
 
 #gp = gp + geom_density(aes_string(x=x_col))
 

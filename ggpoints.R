@@ -171,8 +171,11 @@ class(mapping) <- "uneval"
 
 pointLayer <- layer(
 	geom = "point",
-	geom_params = geom_params,
-	mapping = mapping
+#	geom_params = geom_params,
+	params = geom_params,
+	mapping = mapping,
+	stat = "identity",
+	position = "identity"
 )
 
 gp = ggplot(df) + pointLayer

@@ -136,7 +136,8 @@ if (!is.null(opt$fill_by)) {
 # define histogram layer 
 histLayer <- layer(
     geom = "bar",
-    geom_params = geom_params,
+#    geom_params = geom_params,
+	params = geom_params,
 	position = "identity",
 	mapping = mapping,
     stat = "identity"

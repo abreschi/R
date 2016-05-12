@@ -30,7 +30,7 @@ make_option(c("-l", "--log"), action="store_true", default=FALSE,
 make_option(c("-p", "--pseudocount"), default=1e-04,
 	help="pseudocount"),
 
-make_option(c("-k", "--keep_na"), default=FALSE,
+make_option(c("-k", "--keep_na"), action="store_true", default=FALSE,
 	help="do not replace NAs with 0 [default=%default]"),
 
 make_option(c("-m", "--method"), default="pearson",
