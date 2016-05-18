@@ -28,7 +28,7 @@ make_option(c("-I", "--min.iso2.RPKM"), default=0.01,
 	"),
 
 make_option(c("-m", "--metadata"),  
-	help="Matrix with metadata associated to each samples in the input matrix. If NULL vlsvt is computed across all samples [default=%default"),
+	help="Matrix with metadata associated to each samples in the input matrix. If NULL vlsvt is computed across all samples [default=%default]"),
 
 make_option(c("--merge_mdata_on"), default="labExpId",
 	help="metadata column with headers of the input matrix [default=%default]"),
@@ -333,6 +333,9 @@ if (!is.null(opt$metadata)) {
 } 
 
 if (is.null(opt$metadata)) {
+	if (opt$verbose) {
+		cat("Across all samples...\n")
+	}
 	# Compute variance
 	res = VlsVt.comp(m)
 }

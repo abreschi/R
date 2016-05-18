@@ -150,18 +150,8 @@ theme_update(
 	panel.grid.major = element_blank()
 )
 
-# Stat parameters 
-stat = ifelse(is.null(opt$y_axis), "bin", "identity")
 
-stat_params = list(
-	right=TRUE, 
-	include.lowest=TRUE
-)
 
-# specify binwidth
-if (!is.null(opt$binwidth)) {
-	stat_params$binwidth = opt$binwidth
-}
 
 # Sort bars by abundance
 if (opt$sort) {
@@ -184,6 +174,17 @@ geom_params = list()
 # specify binwidth
 geom_params$binwidth = opt$binwidth
 
+# Stat parameters 
+stat = ifelse(is.null(opt$y_axis), "bin", "identity")
+
+if (is.factor(df[,x_col]) | is.character(df[,x_col])) {
+	stat = "count"
+}
+
+stat_params = list(
+	right=TRUE, 
+	include.lowest=TRUE
+)
 
 mapping = list()
 
