@@ -224,12 +224,14 @@ gp = gp + theme(axis.text.x=element_text(angle=45, hjust=1))
 # Fill scale
 if (!is.null(opt$palette)) {
 	gp = gp + scale_fill_manual(values=palette)
+	gp = gp + guides(fill=guide_legend(ncol=1))
 } else {
 	gp = gp + scale_fill_hue()
 }
 # Color scale
 if (!is.null(opt$palette)) {
 	gp = gp + scale_color_manual(values=palette)
+	gp = gp + guides(color=guide_legend(ncol=1))
 } else {
 	gp = gp + scale_color_hue()
 }
@@ -247,6 +249,9 @@ if (!is.null(opt$facet_by)) {
 	facet_form = as.formula(sprintf("~%s", facet_col))
 	gp = gp + facet_wrap(facet_form, scales=opt$facet_scale, nrow=opt$facet_nrow)
 }
+
+gp = gp + guides(fill=guide_legend(ncol=1))
+gp = gp + guides(color=guide_legend(ncol=1))
 
 ggsave(opt$output, h=opt$height, w=opt$width)
 

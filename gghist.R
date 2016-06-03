@@ -119,6 +119,7 @@ m = read.table(input, sep="\t", h=opt$header, quote=NULL)
 
 df = m
 
+
 # Read facet
 if (!is.null(opt$facet_by)) {facet_formula = as.formula(sprintf("~%s", colnames(df)[opt$facet_by]))}
 # Read columns
@@ -127,6 +128,13 @@ if (!is.null(opt$y_axis)) {y_col = colnames(df)[opt$y_axis]}
 if (!is.null(opt$fill_by)) {F_col = colnames(df)[opt$fill_by]}
 if (!is.null(opt$color_by)) {C_col = colnames(df)[opt$color_by]}
 if (!is.null(opt$alpha_by)) {A_col = colnames(df)[opt$alpha_by]}
+
+if (!is.null(opt$fill_by)) {
+	if (F_col == x_col) {
+		df[paste(x_col, "fill", sep=".")] = df[,F_col]
+		F_col = paste(x_col, "fill", sep=".")
+	}
+}
 
 # Read palette
 if (!is.null(opt$palette)) {
@@ -155,6 +163,7 @@ theme_update(
 
 # Sort bars by abundance
 if (opt$sort) {
+	oldLev = levels(factor(df[,x_col]))
 	if (is.null(opt$y_axis)) {
 		lev = levels(as.factor(df[,x_col]))[order(table(df[,x_col]), decreasing=TRUE)]
 		df[x_col] <- factor(df[,x_col], levels=lev)
@@ -174,12 +183,13 @@ geom_params = list()
 # specify binwidth
 geom_params$binwidth = opt$binwidth
 
-# Stat parameters 
-stat = ifelse(is.null(opt$y_axis), "bin", "identity")
-
 if (is.factor(df[,x_col]) | is.character(df[,x_col])) {
 	stat = "count"
 }
+
+# Stat parameters 
+stat = ifelse(is.null(opt$y_axis), "bin", "identity")
+
 
 stat_params = list(
 	right=TRUE, 
@@ -200,6 +210,7 @@ if (!is.null(opt$fill_by)) {
 } else {
 	geom_params$fill = opt$fill
 }
+
 
 # specify color column
 if (!is.null(opt$color_by)) {

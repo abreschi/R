@@ -181,8 +181,11 @@ class(mapping) <- "uneval"
 
 lineLayer <- layer(
 	geom = "line",
-	geom_params = geom_params,
-	mapping = mapping
+	params = geom_params,
+#	geom_params = geom_params,
+	mapping = mapping,
+	stat = "identity",
+	position = "identity"
 )
 
 

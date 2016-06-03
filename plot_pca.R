@@ -245,9 +245,10 @@ l_col = opt$labels
 base_size = opt$base_size
 
 theme_set(theme_bw(base_size = base_size))
-theme_update(legend.text=element_text(size=0.9*base_size))
-theme_update(legend.key.size=unit(0.9*base_size, "points"))
-theme_update(legend.key = element_blank())
+theme_update(legend.text=element_text(size=0.9*base_size),
+	legend.key.size=unit(0.9*base_size, "points"),
+	legend.key = element_blank()
+)
 
 top = 30
 
@@ -255,6 +256,41 @@ top = 30
 pdf(sprintf("%s.pdf", output_name), w=opt$width, h=opt$height)
 
 if (length(prinComp) == 2){
+
+	geom_params = list()
+	geom_params$size = pts
+#	geom_params$alpha = opt$alpha
+	
+	mapping = list()
+	mapping <- modifyList(mapping, aes_string(x=prinComp[1], y=prinComp[2]))
+	if (!is.null(opt$color_by)) {
+		gp_color_by=interaction(df[color_by])
+		if (!is.null(opt$sort_color)) {
+			gp_color_by = factor(gp_color_by, levels=sort_color)
+		}
+		mapping = modifyList(mapping, aes_string(color=gp_color_by, order=gp_color_by))
+	} else {
+		gp_color_by=NULL
+	}
+	if (!is.na(opt$shape_by)) {gp_shape_by=interaction(df[shape_by]);
+	gp_shape_by <- factor(gp_shape_by, levels=sort(levels(gp_shape_by)))
+	mapping = modifyList(mapping, aes_string(shape=S_col))
+	
+	} else {gp_shape_by=NULL}
+	class(mapping) <- "uneval"
+	
+	pointLayer <- layer(
+		geom = "point",
+	#	geom_params = geom_params,
+		params = geom_params,
+		mapping = mapping,
+		stat = "identity",
+		position = "identity"
+	)
+	
+
+
+
 	# plotting...
 	gp = ggplot(df, aes_string(x=prinComp[1],y=prinComp[2]));
 
@@ -266,23 +302,20 @@ if (length(prinComp) == 2){
 		)
 	}
 
-	if (!is.null(opt$color_by)) {
-		gp_color_by=interaction(df[color_by])
-		if (!is.null(opt$sort_color)) {
-			gp_color_by = factor(gp_color_by, levels=sort_color)
-		}
-	} else {
-		gp_color_by=NULL
-	}
-	if (!is.na(opt$shape_by)) {gp_shape_by=interaction(df[shape_by]);
-	gp_shape_by <- factor(gp_shape_by, levels=sort(levels(gp_shape_by)))} else {gp_shape_by=NULL}
 
 	if (opt$border) {
+		if (!is.na(opt$shape_by)) {
 		gp = gp + geom_point(aes(shape=gp_shape_by), col='black', size=pts+1.0);
+		} else {
+		gp =  gp + geom_point(col="black", size=pts+1.0)
+		}
 	}
 
-	gp = gp + geom_point(aes(col=gp_color_by, shape=gp_shape_by), size=pts);
+	gp = gp + pointLayer
 
+#	gp = gp + geom_point(aes(color=gp_color_by))
+#	gp = gp + geom_point(aes(col=gp_color_by, shape=gp_shape_by), size=pts);
+#
 	gp = gp + labs(title="");
 	gp = gp + labs(x=sprintf('%s (%s%%)', prinComp[1], variances[prinComp_i[1]]));
 	gp = gp + labs(y=sprintf('%s (%s%%)', prinComp[2], variances[prinComp_i[2]]));

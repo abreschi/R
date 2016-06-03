@@ -128,7 +128,6 @@ if (opt$y_log) {m[,y_axis] <- m[,y_axis] + opt$y_psd}
 
 df = m
 
-
 plot_title = opt$title
 
 # Pearson correlation coefficient
@@ -155,15 +154,26 @@ y_col = colnames(df[y_axis])
 C_col = colnames(df)[opt$color_by]
 S_col = colnames(df)[opt$shape_by]
 
+
+if (!is.null(opt$color_by)) {
+	df = df[order(df[,C_col]),]
+}
+
+
 geom_params = list()
 geom_params$size = opt$size
 geom_params$alpha = opt$alpha
 
+
 mapping = list()
 mapping <- modifyList(mapping, aes_string(x=x_col, y=y_col))
 if (!is.null(opt$color_by)) {
-	mapping = modifyList(mapping, aes_string(color=C_col, order=C_col))
+	mapping = modifyList(mapping, aes_string(color=C_col))
 }
+
+#print(head(df[,C_col], 20))
+#print(head(order(order(df[,C_col])), 20))
+
 if (!is.null(opt$shape_by)) {
 	mapping = modifyList(mapping, aes_string(shape=S_col))
 }

@@ -118,15 +118,46 @@ theme_set(theme_bw(base_size=base_size))
 legend_text_inch = theme_get()$legend.text$size * base_size / 72.72
 add_w = legend_text_inch * max(nchar(df$labels)) * ceiling(length(levels(as.factor(df$labels)))/legend_nrow)
 
+geom_params = list()
+geom_params$size = opt$size
+geom_params$alpha = opt$alpha
 
-pdf(sprintf("%s.pdf",output), h=5, w=6+add_w, title=output)
 
-gp = ggplot(df, aes(x=x, y=y))
-if (!is.null(opt$color_by)) {gp_color_by=interaction(df[opt$color_by])} else {gp_color_by=NULL}
-if (!is.null(opt$linetype_by)) {gp_linetype_by=interaction(df[opt$linetype_by])} else {gp_linetype_by=NULL}
-gp = gp + geom_line(aes(color=gp_color_by, linetype=gp_linetype_by, group=labels))
-gp = gp + labs(y="Fraction of gene rpkm", x='Number of genes')
-gp = gp + scale_linetype_manual(values=c(2,1))
+mapping = list()
+mapping <- modifyList(mapping, aes(x=x, y=y, group=labels))
+
+if (!is.null(opt$color_by)) {
+	gp_color_by = interaction(df[opt$color_by])
+    mapping = modifyList(mapping, aes(color=gp_color_by))
+}
+
+if (!is.null(opt$linetype_by)) {
+	gp_linetype_by = interaction(df[opt$linetype_by])
+	mapping = modifyList(mapping, aes(linetype=gp_linetype_by))
+}
+	
+
+class(mapping) <- "uneval"
+
+lineLayer <- layer(
+        geom = "line",
+#       geom_params = geom_params,
+        params = geom_params,
+        mapping = mapping,
+        stat = "identity",
+        position = "identity"
+)
+
+
+
+# GGPLOT
+
+gp = ggplot(df) + lineLayer
+
+#if (!is.null(opt$color_by)) {gp_color_by=interaction(df[opt$color_by])} else {gp_color_by=NULL}
+#if (!is.null(opt$linetype_by)) {gp_linetype_by=interaction(df[opt$linetype_by])} else {gp_linetype_by=NULL}
+#gp = gp + geom_line(aes(color=gp_color_by, linetype=gp_linetype_by, group=labels))
+
 #gp = gp + scale_color_hue(name=paste(opt$color_by, collapse="."))
 if (!is.null(opt$color_by)) {
 	if (!is.null(opt$palette)) {
@@ -135,6 +166,9 @@ if (!is.null(opt$color_by)) {
 		gp = gp + scale_color_hue()
 	}
 }
+
+gp = gp + labs(y="Fraction of gene rpkm", x='Number of genes')
+gp = gp + scale_linetype_manual(values=c(2,1))
 gp = gp + guides(col = guide_legend(nrow = legend_nrow, title=opt$color_by))
 gp = gp + scale_x_log10(expand=c(0,0))
 gp = gp + scale_y_continuous(expand=c(0.01,0), limits=c(0,1))
@@ -144,8 +178,7 @@ if (!is.null(opt$file_sel)) {
 gp = gp + geom_point(data=prop_df, aes(x,y), shape=18, size=2)
 gp = gp + geom_point(data=prop_df, aes(x,y), shape=18, size=1.7, color='yellow')
 }
-gp
 
-dev.off()
+ggsave(sprintf("%s.pdf",output), h=5, w=6+add_w, title=output)
 
 q(save='no')
