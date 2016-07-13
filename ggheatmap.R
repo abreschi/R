@@ -150,7 +150,8 @@ g_legend<-function(a.gplot){
 base_size = opt$base_size
 theme_set(theme_grey(base_size))
 theme_update(axis.ticks=element_blank())
-theme_update(axis.ticks.margin = unit(0.01, "inch"))
+#theme_update(axis.ticks.margin = unit(0.01, "inch"))
+theme_update(axis.text = element_text(margin=unit(0.01, "inch")))
 theme_update(axis.ticks.length = unit(0.01, "inch"))
 
 
@@ -161,8 +162,10 @@ theme_update(axis.ticks.length = unit(0.01, "inch"))
 
 
 # read table
+if (opt$verbose) {cat("Reading input matrix...")}
 if (opt$input_matrix == "stdin") {input=file("stdin")} else {input=opt$input_matrix}
 m = read.table(input, h=T, sep="\t", comment.char="")
+if (opt$verbose) {cat("DONE\n\n")}
 
 
 # Make valid row and column names
