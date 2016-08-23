@@ -32,9 +32,6 @@ option_list <- list(
 make_option(c("-i", "--input_matrix"), 
 	help="the matrix you want to analyze. \"stdin\" to read from standard input"),
 
-#make_option(c("-l", "--log"), action="store_true", default=FALSE, 
-#	help="apply the log10. NAs are treated as 0s and a pseudocount is added if specified [default=%default]"),
-#
 make_option(c("-l", "--log"), 
 	help="If you want to apply the log specify a base. Leave empty otherwise"),
 
