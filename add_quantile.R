@@ -37,6 +37,9 @@ make_option(c("-b", "--breaks"), default="c(-Inf,1,2,3,Inf)",
 make_option(c("--paste"), action="store_true", default=FALSE,
 	help="Paste index and interval in a unique column [default=%default]"),
 
+make_option(c("--rowNames"), action="store_true", default=FALSE,
+	help="Print row names in the output [default=%default]"),
+
 make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
 	help="if you want more output [default=%default]")
 
@@ -155,7 +158,7 @@ if (opt$paste) {
 # Print output
 
 output = ifelse(opt$output == "stdout", "", opt$output)
-write.table(m, file=output, row.names=FALSE, quote=FALSE, col.names=opt$header, sep="\t")
+write.table(m, file=output, row.names=opt$rowNames, quote=FALSE, col.names=opt$header, sep="\t")
 
 
 # EXIT
