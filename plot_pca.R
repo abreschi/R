@@ -30,7 +30,7 @@ make_option(c("-c", "--color_by"), help="choose the fields in the metadata you w
 make_option(c("--sort_color"), type='character', 
 	help="A field for sorting colors. Can be omitted [default=%default]"),
 
-make_option(c("-s", "--shape_by"), help="choose the fields in the metadata you want to shape by", type='character', default=NA),
+make_option(c("-s", "--shape_by"), default=NULL, type="character", help="choose the fields in the metadata you want to shape by"),
 
 make_option(c("--no_legend"), action="store_true", default=FALSE,
 	help="Do not show the legend [default=%default]"),
@@ -106,7 +106,7 @@ if (opt$verbose) {
 
 
 # Read the color palette
-my_palette = read.table(opt$palette, h=F, comment.char="%")$V1
+my_palette = read.table(opt$palette, h=F, comment.char="%", sep="\t")$V1
 
 # Read the color ordering
 if (is.null(opt$sort_color)) {
@@ -146,7 +146,7 @@ if (opt$verbose) {print(dim(na.omit(m)))}
 # add metadata to pca results, they should be input in the command line in the future
 if (is.null(opt$color_by)) {color_by=NULL
 }else{color_by = color_by = strsplit(opt$color_by, ",")[[1]]}
-if (is.na(opt$shape_by)) {shape_by=NULL
+if (is.null(opt$shape_by)) {shape_by=NULL
 }else{shape_by = strsplit(opt$shape_by, ",")[[1]]}
 
 # read metadata, one or more table to be merged on labExpId
@@ -156,15 +156,17 @@ if (!is.null(opt$metadata)){
 		mdata[,opt$merge_mdata_on] <- gsub("[,-]", ".", mdata[,opt$merge_mdata_on])
 	}
 
-	cat('append metadata...')
+	if (opt$verbose) {cat('append metadata...')}
 	
 	df = merge(as.data.frame(scaledScores),
 	unique(mdata[c(color_by, shape_by, opt$merge_mdata_on, opt$labels)]), by.x='row.names', by.y=opt$merge_mdata_on, all.x=T)
+	if (opt$verbose) {cat("DONE\n")}
 }else{
 	df = as.data.frame(scaledScores)
 }
 
-cat('\n')
+
+if (opt$verbose) {print(head(df))}
 
 #########
 # OUTPUT
@@ -252,6 +254,7 @@ theme_update(legend.text=element_text(size=0.9*base_size),
 
 top = 30
 
+
 # Open device for plotting
 pdf(sprintf("%s.pdf", output_name), w=opt$width, h=opt$height)
 
@@ -263,6 +266,7 @@ if (length(prinComp) == 2){
 	
 	mapping = list()
 	mapping <- modifyList(mapping, aes_string(x=prinComp[1], y=prinComp[2]))
+
 	if (!is.null(opt$color_by)) {
 		gp_color_by=interaction(df[color_by])
 		if (!is.null(opt$sort_color)) {
@@ -272,11 +276,21 @@ if (length(prinComp) == 2){
 	} else {
 		gp_color_by=NULL
 	}
-	if (!is.na(opt$shape_by)) {gp_shape_by=interaction(df[shape_by]);
-	gp_shape_by <- factor(gp_shape_by, levels=sort(levels(gp_shape_by)))
-	mapping = modifyList(mapping, aes_string(shape=S_col))
 	
-	} else {gp_shape_by=NULL}
+	if (!is.null(opt$shape_by)) {
+		gp_shape_by=interaction(df[shape_by])
+		if (!is.null(opt$sort_shape)) {
+			gp_shape_by = factor(gp_shape_by, levels=sort_shape)
+		}
+		mapping = modifyList(mapping, aes_string(shape=gp_shape_by, order=gp_shape_by))
+	} else {
+		gp_shape_by=NULL
+	}
+
+#	if (!is.na(opt$shape_by)) {gp_shape_by=interaction(df[shape_by]);
+#	gp_shape_by <- factor(gp_shape_by, levels=sort(levels(gp_shape_by)))
+#	mapping = modifyList(mapping, aes_string(shape=S_col))
+	
 	class(mapping) <- "uneval"
 	
 	pointLayer <- layer(
@@ -304,7 +318,7 @@ if (length(prinComp) == 2){
 
 
 	if (opt$border) {
-		if (!is.na(opt$shape_by)) {
+		if (!is.null(opt$shape_by)) {
 		gp = gp + geom_point(aes(shape=gp_shape_by), col='black', size=pts+1.0);
 		} else {
 		gp =  gp + geom_point(col="black", size=pts+1.0)
@@ -352,7 +366,7 @@ suppressPackageStartupMessages(library(scatterplot3d))
 par(xpd=NA, omi=c(0.5, 0.5, 0.5, 1.0))
 
 if (!is.na(opt$color_by)) {gp_color=my_palette[interaction(df[color_by])]} else {gp_color="black"}
-if (!is.na(opt$shape_by)) {gp_shape_by=interaction(df[shape_by]);
+if (!is.null(opt$shape_by)) {gp_shape_by=interaction(df[shape_by]);
 gp_shape_by <- factor(gp_shape_by, levels=sort(intersect(levels(gp_shape_by), gp_shape_by))); gp_shape=my_shapes[gp_shape_by]} else {gp_shape_by=NULL}
 
 plot3d = scatterplot3d(df[prinComp], 
