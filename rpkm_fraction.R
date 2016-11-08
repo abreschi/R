@@ -47,7 +47,7 @@ m = read.table(inF, h=T, sep="\t")
 
 
 # Read color palette if present
-if (!is.null(opt$palette)) {palette = read.table(opt$palette, h=F, comment.char="%")$V1}
+if (!is.null(opt$palette)) {palette = read.table(opt$palette, h=F, comment.char="%", sep="\t")$V1}
 
 # remove potential gene id columns
 char_cols <- which(sapply(m, class) == 'character')
