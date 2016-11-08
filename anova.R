@@ -83,7 +83,7 @@ if (opt$log10) {m = log10(m + opt$pseudocount)}
 
 
 # Read the metadata
-mdata = read.table(opt$metadata, h=T, sep="\t")
+mdata = read.table(opt$metadata, h=T, sep="\t", quote=NULL)
 mdata[,opt$merge_mdata_on] = gsub("[,:-]", ".", mdata[,opt$merge_mdata_on])
 mdata_col = unique(c(opt$merge_mdata_on, strsplit(opt$factors, "[+*:]")[[1]]))
 mdata = unique(mdata[,mdata_col])
