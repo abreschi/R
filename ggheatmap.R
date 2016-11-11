@@ -149,10 +149,12 @@ g_legend<-function(a.gplot){
 
 base_size = opt$base_size
 theme_set(theme_grey(base_size))
-theme_update(axis.ticks=element_blank())
-#theme_update(axis.ticks.margin = unit(0.01, "inch"))
-theme_update(axis.text = element_text(margin=unit(0.01, "inch")))
-theme_update(axis.ticks.length = unit(0.01, "inch"))
+theme_update(
+	axis.ticks=element_blank(),
+	axis.ticks.length = unit(0.01, "inch"),
+	axis.text = element_text(margin=unit(0.01, "inch"))
+)
+#theme_update(axis.ticks.margin = unit(0.01, "inch")) : OLD ggplot version
 
 
 
@@ -448,12 +450,14 @@ if (!is.null(opt$matrix_fill_limits)) {
 
 p1 = ggplot(df, aes(x=Var2, y=Var1))
 p1 = p1 + geom_tile(aes(fill=value))
-p1 = p1 + theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1))
 p1 = p1 + scale_x_discrete(expand=c(0,0), limits=col_limits, labels=col_labels)
 p1 = p1 + scale_y_discrete(expand=c(0,0), limits=row_limits, labels=row_labels)
 p1 = p1 + scale_fill_gradientn(colours=matrix_palette, limits=matrix_fill_limits)
-#p1 = p1 + scale_fill_gradientn(colours=matrix_palette)
-p1 = p1 + theme(plot.margin=unit(c(0.00, 0.00, 0.01, 0.01),"inch"))
+p1 = p1 + theme(
+	plot.margin=unit(c(0.00, 0.00, 0.00, 0.00),"inch"),
+	axis.text.x = element_text(angle=90, vjust=0.5, hjust=1, margin=margin(0.01, 0.00, 0.00, 0.00, "in")),
+	axis.text.y = element_text(margin=margin(0.00, 0.01, 0.00, 0.00, "in"))
+)
 p1 = p1 + labs(x=NULL, y=NULL)
 p1 = p1 + guides(fill=guide_colourbar(
 	title.position="top", 
