@@ -164,7 +164,7 @@ if (opt$byColumns) {
 		# read metadata and merge with data.frame if needed
 		if (!is.null(opt$metadata)) {
 			mdata <- read.table(opt$metadata, h=T, row.names=NULL, sep="\t")
-			mdata$labExpId <- sapply(mdata$labExpId, function(x) gsub(",", ".", x))
+			mdata$labExpId <- sapply(mdata$labExpId, function(x) gsub("[-,]", ".", x))
 			mdata = subset(mdata, labExpId %in% colnames(m))
 			df = merge(df, unique(mdata[c("labExpId", mean_by)]), by = "labExpId")
 		}

@@ -61,7 +61,7 @@ if (opt$verbose) {print(opt)}
 
 # Read data
 if (opt$input == "stdin") {input=file('stdin')} else {input=opt$input}
-m = read.table(input, h=opt$header)
+m = read.table(input, h=opt$header, sep="\t")
 if(opt$verbose) {print(head(m))}
 
 # Read the axes

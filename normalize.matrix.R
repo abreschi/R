@@ -14,10 +14,11 @@ make_option(c("-i", "--input_matrix"), default="stdin",
 
 make_option(c("-M", "--method"), type="character", help="Normalization method [default=%default]
 	
-		cpm    :
-		rlog   :
-		divsum : divide by the column totals (useful to convert from RPKM to TPM)
-		len    : divide by the fragment length * 10^3 (pipe the output to cpm to get RPKM)
+		cpm      :
+		rlog     :
+		divsum   : divide by the column totals (useful to convert from RPKM to TPM)
+		len      : divide by the fragment length * 10^3 (pipe the output to cpm to get RPKM)
+		quantile : quantile normalization (normalize.quantiles() function from package preprocessCore)
 "),
 
 make_option(c("-s", "--scaling_factors"), default="TMM", help="How to compute scaling factors [default=%default]
@@ -30,13 +31,12 @@ make_option(c("-p", "--pseudocount"), type="double", help="A pseudocount to add 
 
 make_option(c("-L", "--lengths"), help="Two-column file with no header. 
 		col1: gene id (same as matrix rows), col2: length [default=%default]"),
-make_option(c("-m", "--metadata"), help="tsv file with metadata on matrix experiment"),
-make_option(c("-G", "--merge_mdata_on"), default="labExpId",
-	help="Column in the metadata with the header of the input matrix [default=%default]"),
-make_option(c("-f", "--formula"), help="formula"),
+#make_option(c("-m", "--metadata"), help="tsv file with metadata on matrix experiment"),
+#make_option(c("-G", "--merge_mdata_on"), default="labExpId",
+#	help="Column in the metadata with the header of the input matrix [default=%default]"),
+#make_option(c("-f", "--formula"), help="formula"),
 make_option(c("-t", "--total"), type="integer", help="Filter by total count per gene > t [default=%default]"),
-#make_option(c("-F", "--fields"), help="choose the fields you want to use in the differential expression, comma-separated"),
-make_option(c("-S", "--lib.sizes"), help="Two-column file with no header. col1: header of matrix, col2: library sizes.
+make_option(c("-S", "--lib_sizes"), help="Two-column file with no header. col1: header of matrix, col2: library sizes.
 		 If not provided, the sum of the column will be used as library size"),
 make_option(c("-N", "--output.norm"), help="File name for normalization factors"),
 make_option(c("-o", "--output"), default="stdout", help="output file name [default=%default]"),
@@ -48,6 +48,7 @@ arguments <- parse_args(parser, positional_arguments = TRUE)
 opt <- arguments$options
 if (opt$verbose) {print(opt)}
 
+suppressPackageStartupMessages(library("methods"))
 
 
 ##--------------------##
@@ -68,20 +69,20 @@ if (!is.null(opt$total)) {
 	m = m[rowSums(m)>opt$total, ]
 }
 
-# =========================== Metadata =======================
-
-if (!is.null(opt$metadata)) {
-	# read the metadata
-	mdata = read.table(opt$metadata, h=T, sep="\t")
-	# Get the fields from the formula 
-	fields = strsplit(sub("~", "", opt$formula), split="[+:*]")[[1]]
-	merge_mdata_on = "labExpId"
-	# Format the metadata
-	mdata = unique(mdata[unique(c(merge_mdata_on, fields))])
-	rownames(mdata) <- mdata[,merge_mdata_on]
-	mdata <- mdata[match(colnames(m), mdata[,merge_mdata_on]), drop=FALSE]
-	design = model.matrix(eval(as.formula(opt$formula)), data=mdata)
-}
+## =========================== Metadata =======================
+#
+#if (!is.null(opt$metadata)) {
+#	# read the metadata
+#	mdata = read.table(opt$metadata, h=T, sep="\t")
+#	# Get the fields from the formula 
+#	fields = strsplit(sub("~", "", opt$formula), split="[+:*]")[[1]]
+#	merge_mdata_on = "labExpId"
+#	# Format the metadata
+#	mdata = unique(mdata[unique(c(merge_mdata_on, fields))])
+#	rownames(mdata) <- mdata[,merge_mdata_on]
+#	mdata <- mdata[match(colnames(m), mdata[,merge_mdata_on]), drop=FALSE]
+#	design = model.matrix(eval(as.formula(opt$formula)), data=mdata)
+#}
 
 
 # ========================= Gene lengths =======================
@@ -115,8 +116,8 @@ if (opt$method %in% c("cpm")) {
 	M = DGEList(m)
 
 	# Check for user-provided library sizes
-	if (!is.null(opt$lib.sizes)) {
-		lib.sizes = read.table(opt$lib.sizes, h=F, sep="\t")
+	if (!is.null(opt$lib_sizes)) {
+		lib.sizes = read.table(opt$lib_sizes, h=F, sep="\t")
 		lib.sizes = lib.sizes[match(lib.sizes$V1, colnames(m)), "V2"]
 		M$samples$lib.size <- lib.sizes
 	}
@@ -167,24 +168,24 @@ if (opt$method == "cpm") {
 }
 
 
-# *********************
-#      voom 
-# *********************
-
-if (opt$method == "voom") {
-
-	# Load limma
-	suppressPackageStartupMessages(library(limma))
-
-	if (is.null(opt$metadata)) {
-		mdata = data.frame(a = colnames(m), row.names = colnames(m))
-		design <- model.matrix(~1, data=mdata)
-	} 
-	
-	v <- voom(M, design, plot=FALSE)
-	out <- v$E
-}
-
+# # *********************
+# #      voom 
+# # *********************
+# 
+# if (opt$method == "voom") {
+# 
+# 	# Load limma
+# 	suppressPackageStartupMessages(library(limma))
+# 
+# 	if (is.null(opt$metadata)) {
+# 		mdata = data.frame(a = colnames(m), row.names = colnames(m))
+# 		design <- model.matrix(~1, data=mdata)
+# 	} 
+# 	
+# 	v <- voom(M, design, plot=FALSE)
+# 	out <- v$E
+# }
+# 
 
 # ******************
 #     rlog
@@ -224,6 +225,16 @@ if (opt$method == "rlog") {
 	out <- assay(rld)
 }
 
+# *******************
+#    quantile
+# *******************
+
+if (opt$method == "quantile") {
+	suppressPackageStartupMessages(library('preprocessCore'))
+	out = normalize.quantiles(as.matrix(m))
+	colnames(out) <- colnames(m)
+	rownames(out) <- rownames(m)
+}
 
 
 # =================== OUTPUT ======================

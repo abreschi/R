@@ -166,13 +166,6 @@ mapping = aes_string(color=color_by, fill=fill_by)
 
 alpha = 0.9
 
-geom_params = list()
-
-geom_params$alpha = alpha
-geom_params$size = 1
-geom_params$outliers.colour = NULL
-
-
 # Read x order
 if (!is.null(opt$x_order)) {
 	x_order = read.table(opt$x_order, h=F)[,1]
@@ -185,15 +178,25 @@ gp = ggplot(m, aes_string(x=x, y=y))
 
 layers = strsplit(opt$layers, split=",")[[1]]
 for (l in layers) {
+	geom_params = list()
+
+	geom_params$alpha = alpha
+	geom_params$size = 1
+
 	if (l == "boxplot") {
 		geom = "boxplot"
 		stat = "boxplot"
 		position = "dodge"
+		if ("jitter" %in% layers) {
+			geom_params$outlier.shape = NA
+			mapping = aes_string()
+		}
 	}
 	if (l == "jitter") {
 		geom = "point"
 		stat = "identity"
 		position = "jitter"
+		mapping = aes_string(color=color_by, fill=fill_by)
 	}
 	plotLayer <- layer(
 		geom = geom,

@@ -74,7 +74,7 @@ suppressPackageStartupMessages(library("plyr"))
 
 # read input matrix
 if (opt$input_matrix == "stdin") {input=file("stdin")} else {input=opt$input_matrix}
-m = read.table(input, h=T)
+m = read.table(input, h=T, sep="\t")
 id = colnames(m)
 
 # --- dist ---
@@ -91,7 +91,7 @@ if (opt$input_type == "obs") {
 
 
 ## Read the color palette
-if (!is.null(opt$palette)) {my_palette = read.table(opt$palette, h=F, comment.char="%")$V1}
+if (!is.null(opt$palette)) {my_palette = read.table(opt$palette, h=F, comment.char="%", sep="\t")$V1}
 
 #
 ## Read the shapes
@@ -117,7 +117,7 @@ map_df = data.frame(x=tsne$Y[,1], y=tsne$Y[,2], id=id)
 # HANDLING METADATA
 
 if (!is.null(opt$metadata)){
-	mdata = read.table(opt$metadata, h=T, sep="\t", row.names=NULL);
+	mdata = read.table(opt$metadata, h=T, sep="\t", row.names=NULL, quote="");
 	mdata[,opt$merge_mdata_on] <- gsub("[,-]", ".", mdata[,opt$merge_mdata_on])
 	mdata <- unique(mdata[,c(opt$merge_mdata_on, opt$color_by, opt$shape_by)])
 	map_df <- merge(map_df, mdata, by.x="id", by.y=opt$merge_mdata_on)

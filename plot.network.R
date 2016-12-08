@@ -1,7 +1,5 @@
 #!/usr/bin/env Rscript
 
-suppressPackageStartupMessages(library(reshape2))
-suppressPackageStartupMessages(library(igraph))
 
 opt = list()
 opt$input = "top500.sd.RPKM.glasso.tsv"
@@ -78,6 +76,10 @@ parser <- OptionParser(usage = "%prog [options] file", option_list=option_list)
 arguments <- parse_args(parser, positional_arguments = TRUE)
 opt <- arguments$options
 if (opt$verbose) {print(opt)}
+
+
+suppressPackageStartupMessages(library(reshape2))
+suppressPackageStartupMessages(library(igraph))
 
 
 #################################################################

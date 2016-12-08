@@ -86,7 +86,7 @@ if (opt$log10) {m = log10(m + opt$pseudocount)}
 
 # Read the metadata
 if (!is.null(opt$metadata)) {
-	mdata <- read.table(opt$metadata, h=T, row.names=NULL, sep="\t")
+	mdata <- read.table(opt$metadata, h=T, row.names=NULL, sep="\t", comment.char="", quote="\"")
 	mdata$labExpId <- sapply(mdata$labExpId, function(x) gsub(",", ".", x))
 	mdata$labExpId <- sapply(mdata$labExpId, function(x) gsub(":", ".", x))
 	mdata = subset(mdata, labExpId %in% colnames(m))

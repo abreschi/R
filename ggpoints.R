@@ -116,7 +116,7 @@ if(opt$input_matrix == "stdin") {inF = file("stdin")} else {inF=opt$input_matrix
 m = read.table(inF, h=opt$header, sep="\t")
 
 # Read color palette
-if (!is.null(opt$palette)) {palette = as.character(read.table(opt$palette, h=F, comment.char="%")$V1)}
+if (!is.null(opt$palette)) {palette = as.character(read.table(opt$palette, h=F, comment.char="%", sep="\t")$V1)}
 
 # Read the columns indeces
 axes = strsplit(opt$xy, ",")[[1]]

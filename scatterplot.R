@@ -90,9 +90,9 @@ if (opt$verbose) {cat("DONE\n\n")}
 ###################
 
 if (opt$input_matrix == "stdin") {
-	m = read.table(file("stdin"), h=opt$header)
+	m = read.table(file("stdin"), h=opt$header, sep="\t")
 } else {
-	m = read.table(opt$input_matrix, h=opt$header)
+	m = read.table(opt$input_matrix, h=opt$header, sep="\t")
 }
 
 # Replace NAs with 0 if needed

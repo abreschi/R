@@ -74,7 +74,8 @@ print(head(m))
 
 if (opt$representation == "stack") {
 	gp = ggplot(m, aes_string(x=field, y="ratio")) 
-	gp = gp + geom_bar(position=position_stack(width=1), stat="identity", aes(fill=trid), color="black")
+#	gp = gp + geom_bar(position=position_stack(width=1), stat="identity", aes(fill=trid), color="black")
+	gp = gp + geom_bar(position="stack", stat="identity", aes(fill=trid), color="black")
 	gp = gp + geom_text(aes_string(x=field, y=102, label="sum"), angle=45, hjust=0)
 	gp = gp + scale_fill_manual(values=palette, opt$gene)
 	gp = gp + theme(axis.text.x = element_text(angle=45, hjust=1))

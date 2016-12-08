@@ -80,8 +80,14 @@ make_option(c("-W", "--width"), default=7,
 make_option(c("-H", "--height"), default=5,
 	help="height of the plot in inches. [default=%default]"),
 
+make_option(c("-B", "--base_size"), default=20,
+	help="BAse size. [default=%default]"),
+
 make_option(c("-b", "--binwidth"), type="double", 
 	help="Specify binwidth. Leave empty for default"),
+
+make_option(c("--flip"), action="store_true", default=FALSE,
+	help="Flip coordinates [default=%default]"),
 
 make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
 	help="if you want more output [default=%default]")
@@ -150,7 +156,7 @@ if (is.character(df[,x_col])) {
 # GGPLOT
 #================
 
-theme_set(theme_bw(base_size=20))
+theme_set(theme_bw(base_size=opt$base_size))
 theme_update(
 	axis.text.x=element_text(angle=45, hjust=1, vjust=1),
 	legend.key = element_rect(color='white'),
@@ -183,12 +189,14 @@ geom_params = list()
 # specify binwidth
 geom_params$binwidth = opt$binwidth
 
+stat = "bin"
+
 if (is.factor(df[,x_col]) | is.character(df[,x_col])) {
 	stat = "count"
 }
 
 # Stat parameters 
-stat = ifelse(is.null(opt$y_axis), "bin", "identity")
+stat = ifelse(is.null(opt$y_axis), stat, "identity")
 
 
 stat_params = list(
@@ -206,7 +214,7 @@ if (!is.null(opt$y_axis)) {
 
 # specify fill column
 if (!is.null(opt$fill_by)) {
-	mapping <- modifyList(mapping, aes_string(fill=F_col, order=F_col))
+	mapping <- modifyList(mapping, aes_string(fill=F_col, order=rev(F_col)))
 } else {
 	geom_params$fill = opt$fill
 }
@@ -214,7 +222,7 @@ if (!is.null(opt$fill_by)) {
 
 # specify color column
 if (!is.null(opt$color_by)) {
-	mapping <- modifyList(mapping, aes_string(color=F_col, order=F_col))
+	mapping <- modifyList(mapping, aes_string(color=F_col, order=rev(F_col)))
 } else {
 	geom_params$color = opt$color
 }
@@ -264,6 +272,11 @@ if (!is.null(opt$color_by)) {
 		gp = gp + scale_color_hue()
 	}
 }
+
+if (!is.null(opt$alpha_by)) {
+	gp = gp + scale_alpha_discrete(range=rev(c(0.4,1)))
+}
+
 if (!is.null(opt$facet_by)) {
 	gp = gp + facet_wrap(facet_formula, scales=opt$facet_scale, nrow=opt$facet_nrow)
 }
@@ -277,6 +290,10 @@ if (!is.null(opt$title)) {gp = gp + ggtitle(opt$title)}
 gp = gp + labs(y=opt$y_title)
 
 gp = gp + coord_cartesian(expand=FALSE)
+
+if (opt$flip) {
+	gp = gp + coord_flip()
+}
 
 #gp = gp + geom_density(aes_string(x=x_col))
 
