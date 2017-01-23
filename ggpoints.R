@@ -215,7 +215,8 @@ gp = gp + labs(
 # Facet
 
 if (!is.null(opt$facet_by)) {
-	facet_formula = as.formula(sprintf("~%s", colnames(df)[opt$facet_by]))
+	facet_col = colnames(df)[opt$facet_by]
+	facet_formula = as.formula(sprintf("~%s", facet_col))
 	gp = gp + facet_wrap(facet_formula, scale=opt$facet_scale, nrow=opt$facet_nrow)
 }
 
@@ -246,9 +247,19 @@ if (opt$off_diagonal) {
 }
 
 # Add the regression line
-
 if (opt$linear_regression) {
-	
+
+	if (!is.null(opt$facet_by)) {	
+		corDf = data.frame( 
+			t( sapply(split(df, df[[facet_col]]), function(d) 
+				cor.test(d[[x_col]], d[[y_col]])[c("estimate", "p.value")]
+			)
+			)
+		)
+		corDf[[facet_col]] = rownames(corDf)
+		corDf[["label"]] = apply(corDf, 1, function(r) {sprintf("c=%.2f\npv=%s", r[1], format(r[2], digits=2))})
+	}
+
 	if (opt$verbose) {print(head(df))}
 	if (opt$x_log) {
 		x_col = sprintf("log10(%s)", x_col)
@@ -257,9 +268,19 @@ if (opt$linear_regression) {
 		y_col = sprintf("log10(%s)", y_col)
 	}
 	formula = as.formula(sprintf("%s~%s", y_col, x_col))
+	if (!is.null(opt$facet_by)) {
+		formula = as.formula(sprintf("%s~%s+%s", y_col, x_col, facet_col))
+	}
 	coeff = lm(formula, df)$coefficients
-	gp = gp + geom_abline(intercept=coeff[1], slope=coeff[2])
+#	gp = gp + geom_abline(intercept=coeff[1], slope=coeff[2])
+	gp = gp + geom_smooth(method = "lm", se=FALSE, color="black", mapping=aes_string(x_col, y_col))
+
+	gp = gp + geom_text(data=corDf, aes(x=min(df[[x_col]]), y=max(df[[y_col]]), label=label), vjust=1, hjust=0)
 }
+
+
+
+
 
 
 # Change to log scale
