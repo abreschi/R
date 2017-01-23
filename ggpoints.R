@@ -36,6 +36,9 @@ make_option(c("-f", "--facet_by"), type="integer", default=NULL,
 make_option(c("--facet_scale"), default="fixed",
 	help="Scale of the facet: < fixed | free_y | free_x | free > [default=%default]"),
 
+make_option(c("--facet_nrow"), type="integer", default=NULL,
+	help="Number of rows for faceting [default=%default]"),
+
 make_option(c("-a", "--alpha"), default=1,
 	help="Transparency value [default=%default]"),
 
@@ -213,7 +216,7 @@ gp = gp + labs(
 
 if (!is.null(opt$facet_by)) {
 	facet_formula = as.formula(sprintf("~%s", colnames(df)[opt$facet_by]))
-	gp = gp + facet_wrap(facet_formula, scale=opt$facet_scale)
+	gp = gp + facet_wrap(facet_formula, scale=opt$facet_scale, nrow=opt$facet_nrow)
 }
 
 
