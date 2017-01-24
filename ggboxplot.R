@@ -62,6 +62,9 @@ make_option(c("--y_limits"),
 make_option(c("-P", "--palette"), 
 	help='File with colors for the lines. Leave empty to use even color spacing'),
 
+make_option(c("-a", "--annotate"), action='store_true', default=FALSE,
+	help="Print median over boxplots [default=%default]"),
+
 make_option(c("-W", "--width"), default=7,
 	help='Width of the plot in inches [default=%default]'),
 
@@ -116,6 +119,9 @@ x_col = as.numeric(xy[1])
 y_col = as.numeric(xy[2])
 x = colnames(m)[x_col]
 y = colnames(m)[y_col]
+if (!is.null(opt$color_by)) {color_by = colnames(m)[opt$color_by]} else {color_by=NULL}
+if (!is.null(opt$fill_by)) {fill_by = colnames(m)[opt$fill_by]} else {fill_by=NULL}
+if (!is.null(opt$facet_by)) {facet_col = colnames(m)[opt$facet_by]}
 
 # Convert to log if asked
 if (opt$log) {
@@ -146,6 +152,22 @@ for (i in colnames(m)[charCols]) {
 }
 
 
+# Compute the quantiles for the data based on grouping
+if (opt$annotate) {
+	medianFormula = as.formula(sprintf("%s~%s", y, x)) 
+	if (!is.null(color_by) || !is.null(fill_by) || !is.null(facet_by)) {
+		medianFormula = as.formula(sprintf("%s~%s", y, paste(x, color_by, fill_by, facet_col, sep="+")))
+	}
+	medians = aggregate(medianFormula, data=m, median)
+	colnames(medians)[length(colnames(medians))] = "median"
+	medians$median <- round(medians$median, digits=2)
+	uppQuartiles = aggregate(medianFormula, data=m, quantile, 0.75)
+	colnames(uppQuartiles)[length(colnames(uppQuartiles))] = "uppQuartile"
+	text = merge(medians, uppQuartiles, by=intersect(colnames(medians), colnames(uppQuartiles)))
+}
+
+
+
 #~~~~~~~~~~~~
 # GGPLOT
 #~~~~~~~~~~~~
@@ -154,14 +176,13 @@ theme_set(theme_bw(base_size=20))
 theme_update(
 	panel.grid.minor = element_blank(),
 	panel.grid.major = element_blank(),
+	panel.spacing = unit(0.2, "lines"),
 	legend.key = element_blank(),
 	plot.title = element_text(vjust=1),
 	axis.title.y = element_text(vjust=1.4,angle=90)
 )
 
 
-if (!is.null(opt$color_by)) {color_by = colnames(m)[opt$color_by]} else {color_by=NULL}
-if (!is.null(opt$fill_by)) {fill_by = colnames(m)[opt$fill_by]} else {fill_by=NULL}
 mapping = aes_string(color=color_by, fill=fill_by)
 
 alpha = 0.9
@@ -208,6 +229,9 @@ for (l in layers) {
 	gp = gp + plotLayer
 }
 
+if (opt$annotate) { ##### TO DO: write it as layers!!! 
+	gp = gp + geom_text(data=text, aes_string(x=x, y="uppQuartile", label="median"), vjust=-2)
+}
 
 if (!is.null(opt$y_title)) {
 	opt$y_title = gsub("\\\\n", "\n", opt$y_title)
