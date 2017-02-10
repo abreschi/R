@@ -10,7 +10,7 @@ suppressPackageStartupMessages(library("optparse"))
 
 option_list <- list(
 make_option(c("-i", "--input_matrix"), default="stdin", 
-	help="the matrix with READ COUNTS you want to analyze [default=%default]"),
+	help="the matrix with READ COUNTS you want to analyze. Should have a header (n-1 columns) [default=%default]"),
 
 make_option(c("-M", "--method"), type="character", help="Normalization method [default=%default]
 	
@@ -36,8 +36,10 @@ make_option(c("-L", "--lengths"), help="Two-column file with no header.
 #	help="Column in the metadata with the header of the input matrix [default=%default]"),
 #make_option(c("-f", "--formula"), help="formula"),
 make_option(c("-t", "--total"), type="integer", help="Filter by total count per gene > t [default=%default]"),
+
 make_option(c("-S", "--lib_sizes"), help="Two-column file with no header. col1: header of matrix, col2: library sizes.
 		 If not provided, the sum of the column will be used as library size"),
+
 make_option(c("-N", "--output.norm"), help="File name for normalization factors"),
 make_option(c("-o", "--output"), default="stdout", help="output file name [default=%default]"),
 make_option(c("-v", "--verbose"), action="store_true", default=FALSE, help="verbose output [default=%default]")
@@ -49,6 +51,7 @@ opt <- arguments$options
 if (opt$verbose) {print(opt)}
 
 suppressPackageStartupMessages(library("methods"))
+suppressPackageStartupMessages(library("data.table"))
 
 
 ##--------------------##
@@ -58,6 +61,8 @@ suppressPackageStartupMessages(library("methods"))
 merge_mdata_on = opt$merge_mdata_on
 
 # read the matrix from the command line
+#if(opt$input_matrix == "stdin"){inF='file:///dev/stdin'}else{inF=opt$input_matrix}
+#m = data.frame(fread(inF, header=T), row.names=1)
 if(opt$input_matrix == "stdin"){inF=file("stdin")}else{inF=opt$input_matrix}
 m = read.table(inF, h=T, sep="\t")
 
