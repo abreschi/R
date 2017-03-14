@@ -144,7 +144,7 @@ if (!is.null(opt$fill_by)) {
 
 # Read palette
 if (!is.null(opt$palette)) {
-	palette = as.character(read.table(opt$palette, h=F, comment.char="%")$V1)
+	palette = as.character(read.table(opt$palette, h=F, comment.char="%", sep='\t')$V1)
 }
 
 # Correct newlines if column is character
