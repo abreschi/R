@@ -52,6 +52,9 @@ if (opt$verbose) {cat("DONE\n\n")}
 ############################
 
 U = read.table(opt$universe, h=F, col.names='hs')
+
+U$hs = unique(U$hs)
+
 #if (opt$genes == "stdin") {
 #	G = read.table(file("stdin"), h=T, col.names='hs')	
 #} else {
@@ -110,7 +113,7 @@ createParams = function(x, species="human") {
 		testDirection='over')
 	return(params)}
 
-res = hyperGTest(createParams(G$hs, opt$species))
+res = hyperGTest(createParams(unique(G$hs), opt$species))
 
 # Reformat the output table
 df = summary(res)
