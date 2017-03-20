@@ -21,6 +21,7 @@ make_option(c("-c", "--categ"), help="choose the GO category < BP | MF | CC > [d
 make_option(c("-s", "--species"), help="choose the species < human | mouse | dmel > [default=%default]", default="human"),
 make_option(c("-o", "--output"), help="additional tags for otuput [default=%default]", default="out"),
 make_option(c("-d", "--output_dir"), default="./", help="directory for the output [default=%default]"),
+make_option(c("--output_genes"), action="store_true", default=FALSE, help="Output the list of genes from enriched GO terms in a separate file [default=%default]"),
 make_option(c("-v", "--verbose"), default=FALSE, action="store_true", help="verbose")
 )
 
@@ -39,9 +40,9 @@ if (opt$verbose) {cat("Loading libraries... ")}
 
 
 suppressPackageStartupMessages(library("GO.db"))
-if (opt$species == "human") {suppressPackageStartupMessages(library("org.Hs.eg.db"))}
-if (opt$species == "mouse") {suppressPackageStartupMessages(library("org.Mm.eg.db"))}
-if (opt$species == "dmel") {suppressPackageStartupMessages(library("org.Dm.eg.db"))}
+if (opt$species == "human") {ann = "org.Hs.eg.db"; suppressPackageStartupMessages(library("org.Hs.eg.db"))}
+if (opt$species == "mouse") {ann = "org.Mm.eg.db"; suppressPackageStartupMessages(library("org.Mm.eg.db"))}
+if (opt$species == "dmel") {ann = "org.Dm.eg.db"; suppressPackageStartupMessages(library("org.Dm.eg.db"))}
 suppressPackageStartupMessages(library("GOstats"))
 suppressPackageStartupMessages(library("plyr"))
 
@@ -90,15 +91,12 @@ if (opt$verbose) {sprintf("%s background genes; %s with a corresponding entrez i
 
 createParams = function(x, species="human") {
 	if (species == "human") {
-		ann = "org.Hs.eg.db"
 		geneset = unlist(mget(x, org.Hs.egENSEMBL2EG, ifnotfound=NA))
 	}
 	if (species == "mouse") {
-		ann = "org.Mm.eg.db"
 		geneset = unlist(mget(x, org.Mm.egENSEMBL2EG, ifnotfound=NA))
 	}
 	if (species == "dmel") {
-		ann = "org.Dm.eg.db"
 		geneset = unlist(mget(x, org.Dm.egENSEMBL2EG, ifnotfound=NA))
 	}
 	sprintf("%s foreground genes; %s with a corresponding entrez id", length(x), length(unique(geneset)))
@@ -121,10 +119,25 @@ df$Pvalue = format(df$Pvalue, digits=1)
 df$OddsRatio <- round(df$OddsRatio, 2)
 df$ExpCount <- round(df$ExpCount, 2)
 
+
+
+# Get the genes for the enriched GO terms
+if (opt$output_genes) {
+	enrichGenes <- ldply(geneIdsByCategory(res, catids=sigCategories(res, pvalueCutoff(res))), data.frame)
+	enrichGenes[[2]] <- mapIds(eval(parse(text=ann)), keys=enrichGenes[[2]], keytype="ENTREZID", column=c("ENSEMBL"))
+	colnames(enrichGenes) <- c("GO", "gene_id")
+	output = sprintf("%s/%s.%s.genes", opt$output_dir, opt$output, opt$categ)
+	write.table(enrichGenes, file=output, quote=F, sep="\t", row.names=F)
+}
+
+
 # Print output
 output = sprintf("%s/%s.%s", opt$output_dir, opt$output, opt$categ)
 write.table(df, file=sprintf("%s.tsv", output), quote=F, sep="\t", row.names=F)
 htmlReport(res, file=sprintf("%s.html", output))
+
+
+
 
 q(save='no')
 
