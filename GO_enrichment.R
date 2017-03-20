@@ -45,7 +45,7 @@ if (opt$species == "dmel") {suppressPackageStartupMessages(library("org.Dm.eg.db
 suppressPackageStartupMessages(library("GOstats"))
 suppressPackageStartupMessages(library("plyr"))
 
-if (opt$verbose) {cat("DONE\n\n")}
+if (opt$verbose) {cat("DONE\n\n"); sessionInfo()}
 
 ############################
 # BEGIN
