@@ -30,6 +30,9 @@ option_list <- list(
 make_option(c("-i", "--input_matrix"), default="stdin", 
 	help="the matrix you want to analyze. \"stdin\" to read from standard input [default=%default]"),
 
+make_option(c("-N", "--keep_names"), action="store_true", default=FALSE, 
+	help="Check names when reading matrix. Invalid characters are NOT substituted by dots [default=%default]"),
+
 make_option(c("-l", "--log"), action="store_true", default=FALSE, 
 	help="apply the log10. NAs are treated as 0s and a pseudocount is added if specified [default=%default]"),
 
@@ -171,8 +174,11 @@ if (opt$verbose) {cat("DONE\n\n")}
 
 
 # Make valid row and column names
-rownames(m) <- make.names(rownames(m))
-colnames(m) <- make.names(colnames(m))
+if (!opt$keep_names) {
+	rownames(m) <- make.names(rownames(m))
+	colnames(m) <- make.names(colnames(m))
+}
+
 
 # --- read PALETTE files ----
 
@@ -463,7 +469,7 @@ p1 = p1 + guides(fill=guide_colourbar(
 	title.position="top", 
 	direction="horizontal", 
 	title.hjust=0, 
-	title=opt$matrix_legend_title
+	title= opt$matrix_legend_title
 #	draw.ulim=FALSE,
 #	draw.llim=FALSE
 ))
