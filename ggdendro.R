@@ -240,14 +240,15 @@ if (opt$vertical) {
 # ---------- Column labels ----------
 
 
+col_labels_inches = 0
 labelData = label(colHC_data)
 if (!is.null(opt$col_labels) && opt$col_labels != "none") {
 	#labelData$label <- df[,col_label_fields][match(df[,"Var2"], label(colHC_data)[,"label"])]
 	labelData$label <- df[,col_label_fields][match(label(colHC_data)[,"label"], df[,"Var2"])]
 }
 
-col_labels_inches = 0
-if (opt$col_labels != "none") {
+
+if (is.null(opt$col_labels) || opt$col_labels != "none") {
 	gp_labels = ggplot(data=labelData)
 	gp_labels = gp_labels + geom_text(aes(x, 0, label=label, hjust=0))
 	gp_labels = gp_labels + labs(x=NULL, y=NULL)
@@ -259,7 +260,6 @@ if (opt$col_labels != "none") {
 	}
 	col_labels_inches = max(strwidth(labelData$label, units="in", cex=base_size*(as.numeric(theme_get()$axis.text$size))*par()$cex/par()$ps))
 }
-
 
 
 # -------------------- Column Side Colors ------------
@@ -442,7 +442,7 @@ if (opt$verbose) {cat('dendro vp...\n')}
 
 # >>>>> Column labels viewport <<<<<<<<<<<<<<<<<
 
-if (opt$col_labels != "none") {
+if (is.null(opt$col_labels) || opt$col_labels != "none") {
 	if (opt$vertical) {
 		col_labels_vp = viewport(
 			y = 0.05,
@@ -508,7 +508,7 @@ if (!is.null(opt$colSide_by)) {
 }
 
 # Print dendrogram labels
-if (opt$col_labels != "none") {
+if (is.null(opt$col_labels) || opt$col_labels != "none") {
 	print(gp_labels, vp=col_labels_vp, newpage=FALSE)
 }
 
