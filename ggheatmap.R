@@ -229,16 +229,15 @@ if (opt$verbose) {
 
 # read metadata and correct the merging fields
 if (!is.null(opt$col_metadata)) {
-	col_mdata = read.table(opt$col_metadata, h=T, sep="\t", quote="\"", comment.char="")
+	col_mdata = read.table(opt$col_metadata, h=T, sep="\t", quote="\"", comment.char="", check.names=FALSE)
 	col_mdata[opt$merge_col_mdata_on] <- make.names(col_mdata[,opt$merge_col_mdata_on])
 }
 
 if (!is.null(opt$row_metadata)) {
-	row_mdata = read.table(opt$row_metadata, h=T, sep="\t", quote="\"", comment.char="")
+	row_mdata = read.table(opt$row_metadata, h=T, sep="\t", quote="\"", comment.char="", check.names=FALSE)
 	row_mdata[opt$merge_row_mdata_on] <- make.names(row_mdata[,opt$merge_row_mdata_on])
 
 }
-
 # --------------
 # Palette files
 # --------------
@@ -303,6 +302,7 @@ if (same_mdata) {
 }else {
 
 	# merge metadata and data (NB: The column Var2 stays)
+
 	if (!is.null(opt$col_metadata)) {
 #		col_mdata[opt$merge_col_mdata_on] <- gsub(",", ".", col_mdata[,opt$merge_col_mdata_on])
 		df = merge(df, unique(col_mdata[col_mdata_header]), by.x="Var2", by.y=opt$merge_col_mdata_on)
@@ -493,7 +493,7 @@ if (!is.null(opt$colSide_by)) {
 		colSide_data = unique(df[c("Var2", colSide)])
 		ColSide = ggplot(colSide_data, aes(x=Var2, y="a"))
 #		ColSide = ColSide + geom_tile(aes_string(fill=colSide), color="black")
-		ColSide = ColSide + geom_tile(aes_string(fill=colSide))
+		ColSide = ColSide + geom_tile(aes_string(fill=paste("`", colSide, "`", sep="")))
 		ColSide = ColSide + scale_x_discrete(limits = col_limits, labels=NULL, expand=c(0,0))
 		ColSide = ColSide + scale_y_discrete(labels=NULL, expand=c(0,0))
 		if (!is.null(opt$colSide_palette)) {
@@ -529,7 +529,7 @@ if (!is.null(opt$rowSide_by)) {
 			rowSide_data = unique(df[c("Var1", rowSide)])
 			RowSide = ggplot(rowSide_data, aes(x=Var1, y="a"))
 		}
-		RowSide = RowSide + geom_tile(aes_string(fill=rowSide))
+		RowSide = RowSide + geom_tile(aes_string(fill=paste("`", rowSide, "`", sep="")))
 		RowSide = RowSide + scale_x_discrete(limits = row_limits, labels=NULL, expand=c(0,0))
 		RowSide = RowSide + scale_y_discrete(labels=NULL, expand=c(0,0))
 		if (!is.null(opt$rowSide_palette)) {
