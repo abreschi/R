@@ -83,7 +83,7 @@ if (opt$log10) {m = log10(m + opt$pseudocount)}
 
 
 # Read the metadata
-mdata = read.table(opt$metadata, h=T, sep="\t", quote=NULL)
+mdata = read.table(opt$metadata, h=T, sep="\t", quote=NULL, check.names=F)
 mdata[,opt$merge_mdata_on] = gsub("[,:-]", ".", mdata[,opt$merge_mdata_on])
 mdata_col = unique(c(opt$merge_mdata_on, strsplit(opt$factors, "[+*:]")[[1]]))
 mdata = unique(mdata[,mdata_col])
@@ -93,7 +93,7 @@ if (opt$verbose) {
 }
 
 # Read the formula
-F = as.formula(sprintf("value~%s", opt$factors))
+F = as.formula(sprintf("value~`%s`", opt$factors))
 
 #m = m[1:100,]
 
