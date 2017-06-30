@@ -121,7 +121,7 @@ if (opt$verbose) {cat("DONE\n\n")}
 
 # Read data
 if (opt$input == "stdin") {input=file("stdin")} else {input=opt$input}
-m = read.table(input, sep="\t", h=opt$header, quote=NULL) 
+m = read.table(input, sep="\t", h=opt$header, quote=NULL, check.names=F) 
 
 df = m
 
@@ -135,12 +135,12 @@ if (!is.null(opt$fill_by)) {F_col = colnames(df)[opt$fill_by]}
 if (!is.null(opt$color_by)) {C_col = colnames(df)[opt$color_by]}
 if (!is.null(opt$alpha_by)) {A_col = colnames(df)[opt$alpha_by]}
 
-if (!is.null(opt$fill_by)) {
-	if (F_col == x_col) {
-		df[paste(x_col, "fill", sep=".")] = df[,F_col]
-		F_col = paste(x_col, "fill", sep=".")
-	}
-}
+#if (!is.null(opt$fill_by)) {
+#	if (F_col == x_col) {
+#		df[paste(x_col, "fill", sep=".")] = df[,F_col]
+#		F_col = paste(x_col, "fill", sep=".")
+#	}
+#}
 
 # Read palette
 if (!is.null(opt$palette)) {
@@ -163,6 +163,7 @@ theme_update(
 	panel.grid.minor = element_blank(),
 	panel.grid.major = element_blank()
 )
+
 
 
 
@@ -206,23 +207,22 @@ stat_params = list(
 
 mapping = list()
 
-mapping <- modifyList(mapping, aes_string(x=x_col))
+mapping <- modifyList(mapping, aes_string(x=paste("`", x_col, "`", sep="")))
 
 if (!is.null(opt$y_axis)) {
-	mapping <- modifyList(mapping, aes_string(y=y_col))
+	mapping <- modifyList(mapping, aes_string(y=paste("`", y_col, "`", sep="")))
 }
 
 # specify fill column
 if (!is.null(opt$fill_by)) {
-	mapping <- modifyList(mapping, aes_string(fill=F_col, order=rev(F_col)))
+	mapping <- modifyList(mapping, aes_string(fill=paste("`", F_col, "`", sep="")))
 } else {
 	geom_params$fill = opt$fill
 }
 
-
 # specify color column
 if (!is.null(opt$color_by)) {
-	mapping <- modifyList(mapping, aes_string(color=F_col, order=rev(F_col)))
+	mapping <- modifyList(mapping, aes_string(color=paste("`", F_col, "`", sep="")))
 } else {
 	geom_params$color = opt$color
 }
@@ -257,10 +257,11 @@ if (!is.character(df[,x_col]) & !is.factor(df[,x_col])) {
 
 # Fill scale
 if (!is.null(opt$fill_by)) {
+	guide = guide=guide_legend(title=F_col)
 	if (!is.null(opt$palette)) {
-		gp = gp + scale_fill_manual(values=palette)
+		gp = gp + scale_fill_manual(values=palette, guide=guide)
 	} else {
-		gp = gp + scale_fill_hue()
+		gp = gp + scale_fill_hue(guide=guide)
 	}
 }
 
