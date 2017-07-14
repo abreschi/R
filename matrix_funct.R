@@ -30,6 +30,9 @@ option_list <- list(
 make_option(c("-i", "--input_matrix"), default="stdin",
 	help="the matrix you want to analyze. Stdin to read from stdin"),
 
+make_option(c("--dt"), action="store_true", default=F,
+	help="read the matrix as data.table"),
+
 make_option(c("-l", "--log"), action="store_true", default=FALSE, 
 	help="apply the log10, before applying the function [default=%default]"),
 
@@ -77,7 +80,6 @@ if (opt$verbose) {print(opt)}
 
 if (opt$verbose) {cat("Loading libraries... ", file=stderr())}
 suppressPackageStartupMessages(library(reshape2))
-suppressPackageStartupMessages(library(ggplot2))
 source("/users/rg/abreschi/R/functions.R")
 if (opt$verbose) {cat("DONE\n\n", file=stderr())}
 
@@ -99,31 +101,26 @@ load_obj <- function(f)
 
 # read table
 if (opt$verbose) {cat(sprintf("%s: ", Sys.time()), "Reading matrix... ")}
-if (opt$input_matrix == "stdin") {
-    m = read.table(file("stdin"), h=T)
+if (opt$dt) {
+	suppressPackageStartupMessages(library(data.table))
+	inF = ifelse(opt$input_matrix == "stdin", "file:///dev/stdin", opt$input_matrix)
+	m = fread(inF)
+	row.names = m[,1][[1]]
+	m = m[,-1]
 } else {
-    m <- try(load_obj(opt$input_matrix), silent=T)
-    if (class(m) == "try-error") {m <- read.table(opt$input_matrix)}
+	if (opt$input_matrix == "stdin") {
+	    m = read.table(file("stdin"), h=T)
+	} else {
+		m <- try(load_obj(opt$input_matrix), silent=T)
+	    if (class(m) == "try-error") {m <- read.table(opt$input_matrix)}
+	}
+	row.names = rownames(m)
 }
 if (opt$verbose) {cat("DONE\n")}
-
-## read options
-#if (opt$input == "stdin") {
-#	m = read.table(file("stdin"), h=T) 
-#} else {
-#	m = read.table(opt$input_matrix, h=T)
-#}
-
-# Remove non-numeric columns
-char_cols <- which(sapply(m, class) == 'character')
-#sprintf("WARNING: column %s is character, so it is removed from the analysis", char_cols)
-if (length(char_cols) == 0) {genes = rownames(m)}
-if (length(char_cols) != 0) {genes = m[,char_cols]; m = m[,-(char_cols)]}
 
 # apply the log if required
 if (opt$replace_na) {m <- replace(m, is.na(m), 0)}
 if (opt$log) {m = log10(m + opt$pseudocount)}
-
 
 # Set the result to NA when too many missing values are present
 func = function(x) {
@@ -134,7 +131,7 @@ func = function(x) {
 # Apply the function by columns
 if (opt$byColumns) {
 	if (!is.null(opt$metadata)) {
-		mdata <- read.table(opt$metadata, h=T, sep="\t")
+		mdata <- read.table(opt$metadata, h=T, sep="\t", quote="")
 	}
 	if (!is.null(opt$mean_by)) {
 		mean_by = strsplit(opt$mean_by, ",")[[1]]
@@ -151,10 +148,7 @@ if (opt$byColumns) {
 
 	# apply the function to the whole matrix if no value is provided
 	if (is.null(opt$mean_by)) {
-		new_m = setNames(data.frame(apply(m, 1, func)), opt$func)
-	#	if (length(char_cols)!=0) {
-			new_m = cbind(genes, new_m)
-	#	}
+		new_m = setNames(data.table("id"=row.names, "func"=apply(m, 1, func)), c("id", opt$func))
 	} else {
 	
 		# apply the function to the levels of the specified factors
@@ -163,7 +157,7 @@ if (opt$byColumns) {
 		
 		# read metadata and merge with data.frame if needed
 		if (!is.null(opt$metadata)) {
-			mdata <- read.table(opt$metadata, h=T, row.names=NULL, sep="\t")
+			mdata <- read.table(opt$metadata, h=T, row.names=NULL, sep="\t", quote="")
 			mdata$labExpId <- sapply(mdata$labExpId, function(x) gsub("[-,]", ".", x))
 			mdata = subset(mdata, labExpId %in% colnames(m))
 			df = merge(df, unique(mdata[c("labExpId", mean_by)]), by = "labExpId")
