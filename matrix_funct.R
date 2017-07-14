@@ -80,6 +80,7 @@ if (opt$verbose) {print(opt)}
 
 if (opt$verbose) {cat("Loading libraries... ", file=stderr())}
 suppressPackageStartupMessages(library(reshape2))
+suppressPackageStartupMessages(library(data.table))
 source("/users/rg/abreschi/R/functions.R")
 if (opt$verbose) {cat("DONE\n\n", file=stderr())}
 
@@ -102,7 +103,6 @@ load_obj <- function(f)
 # read table
 if (opt$verbose) {cat(sprintf("%s: ", Sys.time()), "Reading matrix... ")}
 if (opt$dt) {
-	suppressPackageStartupMessages(library(data.table))
 	inF = ifelse(opt$input_matrix == "stdin", "file:///dev/stdin", opt$input_matrix)
 	m = fread(inF)
 	row.names = m[,1][[1]]
