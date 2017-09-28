@@ -31,6 +31,9 @@ make_option(c("-y", "--y_axis"), type='integer', default=2,
 make_option(c("-C", "--color_by"), type="integer", 
 	help="Index of the column by which to color the dots [default=%default]"),
 
+make_option(c("--color_as_factor"), action="store_true", default=FALSE, 
+	help="Convert the color_by column to factor [default=%default]"),
+
 make_option(c("-o", "--output_suffix"), help="output filename [default=%default]", default='scatterplot.out.pdf'),
 make_option(c("-t", "--type"), help="<tile>, <hex>, <scatter> [default=%default]", default="tile"),
 make_option(c("-b", "--binwidth"), help="comma-separated values for binwidth x,y [default=%default]", default="1,1"),
@@ -109,6 +112,10 @@ pearson = round(cor(sapply(df[,opt$x_axis], function(x) ifelse(opt$x_log, log10(
 spearman = round(cor(sapply(df[,opt$x_axis], function(x) ifelse(opt$x_log, log10(x), x)), 
 	sapply(df[,opt$y_axis], function(x) ifelse(opt$y_log, log10(x), x)), method='s', use='p'), 2)
 
+if (!is.null(opt$color_by) && opt$color_as_factor) {
+    df[, opt$color_by] <- as.factor(df[, opt$color_by])
+}
+
 
 # PLOTTING ...
 
@@ -153,7 +160,7 @@ gp = gp + geom_hex(aes(fill=cut(..count.., c(0,1,2,5,10,25,50,75,100,500,Inf))),
 gp = gp + scale_fill_manual('counts', values=terrain.colors(length(countBins))) }
 
 if (opt$type == "scatter") {
-	gp = gp + geom_point(aes_string(color=colnames(df)[opt$color_by]), size=1)
+    gp = gp + geom_point(aes_string(colour=colnames(df)[opt$color_by]), size=1)
 }
 
 
