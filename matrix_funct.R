@@ -131,7 +131,7 @@ func = function(x) {
 # Apply the function by columns
 if (opt$byColumns) {
 	if (!is.null(opt$metadata)) {
-		mdata <- read.table(opt$metadata, h=T, sep="\t", quote="")
+		mdata <- read.table(opt$metadata, h=T, sep="\t", quote="", check.names=FALSE)
 	}
 	if (!is.null(opt$mean_by)) {
 		mean_by = strsplit(opt$mean_by, ",")[[1]]
@@ -157,19 +157,19 @@ if (opt$byColumns) {
 		
 		# read metadata and merge with data.frame if needed
 		if (!is.null(opt$metadata)) {
-			mdata <- read.table(opt$metadata, h=T, row.names=NULL, sep="\t", quote="")
+			mdata <- read.table(opt$metadata, h=T, row.names=NULL, sep="\t", quote="", check.names=FALSE)
 			mdata$labExpId <- sapply(mdata$labExpId, function(x) gsub("[-,]", ".", x))
 			mdata = subset(mdata, labExpId %in% colnames(m))
 			df = merge(df, unique(mdata[c("labExpId", mean_by)]), by = "labExpId")
 		}
 		
 		df$value[abs(df$value)==Inf] <- NA
-		aggr = aggregate(as.formula(sprintf("value~gene_index+%s", paste(mean_by,collapse="+"))), df, func, na.action="na.pass")
-		aggr = dcast(aggr, as.formula(sprintf("gene_index~%s", paste(mean_by,collapse="+"))))
+		aggr = aggregate(as.formula(sprintf("value~gene_index+`%s`", paste(mean_by,collapse="+"))), df, func, na.action="na.pass")
+		aggr = dcast(aggr, as.formula(sprintf("gene_index~`%s`", paste(mean_by,collapse="+"))))
 		new_m = aggr
 	
 	#	if (length(char_cols)==0) {new_m = cbind(gene=genes, new_m)}
-		if (length(char_cols)!=0) {new_m = merge(genes, new_m, by.y="gene_index", by.x="row.names")[,-1]}
+	#	if (length(char_cols)!=0) {new_m = merge(genes, new_m, by.y="gene_index", by.x="row.names")[,-1]}
 	}
 }	
 
