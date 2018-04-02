@@ -151,7 +151,7 @@ if (is.null(opt$shape_by)) {shape_by=NULL
 
 # read metadata, one or more table to be merged on labExpId
 if (!is.null(opt$metadata)){
-	mdata = read.table(opt$metadata, h=T, sep="\t", row.names=NULL, comment.char="", quote="");
+	mdata = read.table(opt$metadata, h=T, sep="\t", row.names=NULL, comment.char="", quote="", check.names=F);
 	if (opt$merge_mdata_on %in% colnames(mdata)) {
 		mdata[,opt$merge_mdata_on] <- gsub("[,-]", ".", mdata[,opt$merge_mdata_on])
 	}
