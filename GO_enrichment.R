@@ -113,6 +113,10 @@ createParams = function(x, species="human") {
 
 res = hyperGTest(createParams(unique(G$hs), opt$species))
 
+if (opt$verbose) {
+cat ("Finished Hypergeometric test\n")
+}
+
 # Reformat the output table
 df = summary(res)
 df$Pvalue = format(df$Pvalue, digits=1) 
