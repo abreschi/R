@@ -99,6 +99,7 @@ if (opt$verbose) {print(opt)}
 if (opt$verbose) {cat("Loading libraries... ")}
 suppressPackageStartupMessages(library(reshape2))
 suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(grid))
 #suppressPackageStartupMessages(library(plyr))
 if (opt$verbose) {cat("DONE\n\n")}
 
@@ -193,7 +194,6 @@ if (!is.null(opt$x_order)) {
 	m[,x] = factor(m[,x], levels=x_order)
 }
 
-
 # plot 
 gp = ggplot(m, aes_string(x=x, y=y))
 
@@ -280,7 +280,15 @@ if (!is.null(opt$facet_by)) {
 gp = gp + guides(fill=guide_legend(ncol=1))
 gp = gp + guides(color=guide_legend(ncol=1))
 
-ggsave(opt$output, h=opt$height, w=opt$width)
+# adjust size for long x labels 
+gt = ggplot_gtable(ggplot_build(gp))
+gt$widths[1] = unit(as.numeric(convertUnit(unit(1, 'strwidth', 
+	levels(as.factor(m[[x]]))[1] ), 'in')) / sqrt(2),'in') - gt$widths[2]
+
+pdf(opt$output, h=opt$height, w=opt$width)
+grid.draw(gt)
+dev.off()
+#ggsave(opt$output, h=opt$height, w=opt$width)
 
 # EXIT
 quit(save='no')
