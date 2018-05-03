@@ -156,7 +156,7 @@ m = m[intersect(rownames(m),fgenes),]
 
 
 # read the metadata from the metadata file
-mdata = read.table(opt$metadata, h=T, sep='\t', quote=NULL)
+mdata = read.table(opt$metadata, h=T, sep='\t', quote=NULL, check.names=F)
 mdata[,"labExpId"] <- gsub("[,-]", ".", mdata[,"labExpId"])
 mdata = unique(mdata[,c("labExpId", fields)])
 mdata = mdata[match(colnames(m), mdata[,"labExpId"]), c("labExpId", fields)]
