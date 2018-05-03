@@ -169,7 +169,7 @@ theme_update(
 # read table
 if (opt$verbose) {cat("Reading input matrix...")}
 if (opt$input_matrix == "stdin") {input=file("stdin")} else {input=opt$input_matrix}
-m = read.table(input, h=T, sep="\t", comment.char="")
+m = read.table(input, h=T, sep="\t", comment.char="", check.names=F)
 if (opt$verbose) {cat("DONE\n\n")}
 
 
