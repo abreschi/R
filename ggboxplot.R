@@ -131,7 +131,7 @@ if (opt$log) {
 
 # Read palette
 if (!is.null(opt$palette)) {
-	palette = read.table(opt$palette, h=FALSE, comment.char='%')$V1
+	palette = read.table(opt$palette, h=FALSE, comment.char='%', sep="\t")$V1
 }
 
 
