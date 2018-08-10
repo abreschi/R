@@ -183,7 +183,7 @@ if (opt$print_scores) {
 
 # -- loadings --
 if (opt$print_loadings) {
-	write.table(sweep(pca$rotation, 2, pca$sdev, "*"), 
+	write.table(sweep(m_pca$rotation, 2, m_pca$sdev, "*"), 
 		sprintf("%s.loadings.tsv", output_name), quote=F, sep="\t")
 }
 
