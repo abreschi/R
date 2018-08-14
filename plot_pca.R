@@ -87,7 +87,7 @@ if (opt$verbose) {print(opt)}
 ##------------
 ## LIBRARIES
 ##------------ 
-suppressPackageStartupMessages(library("reshape"))
+suppressPackageStartupMessages(library("reshape2"))
 suppressPackageStartupMessages(library("ggplot2"))
 suppressPackageStartupMessages(library("grid"))
 
@@ -209,8 +209,8 @@ if (opt$biplot) {
 	# === Centroids ===
 
 	centroids = aggregate (
-		formula(sprintf(".~%s", aggrVar)), 
-		df[,c(colnames(df)[grep("^PC", colnames(df))], aggrVar)],
+		df[,which(grepl("^PC", colnames(df)))],
+		by=list(df[[aggrVar]]),
 		mean
 	)
 	centroidsM = centroids[,-1]
@@ -221,16 +221,19 @@ if (opt$biplot) {
 	
 	scaledLoadings = sweep(m_pca$rotation, 2, m_pca$sdev * nrow(m_pca$x), "*")
 	
-	centroidsNorm = apply(centroidsM[,prinComp], 1, vecNorm)         # DIM: number of levels x 1
-	loadingsNorm = apply(scaledLoadings[,prinComp], 1, vecNorm)      # DIM: number of variables x 1
+	#centroidsNorm = apply(centroidsM[,prinComp], 1, vecNorm)         # DIM: number of levels x 1
+	#loadingsNorm = apply(scaledLoadings[,prinComp], 1, vecNorm)      # DIM: number of variables x 1
+	centroidsNorm = apply(centroidsM, 1, vecNorm)         # DIM: number of levels x 1
 	
-	cosine = ( scaledLoadings[,prinComp] %*% t(centroidsM[,prinComp]) ) / (loadingsNorm %*% t(centroidsNorm))
+	#cosine = ( scaledLoadings[,prinComp] %*% t(centroidsM[,prinComp]) ) / (loadingsNorm %*% t(centroidsNorm))
+	cosine = scaledLoadings %*% t(centroidsM) / centroidsNorm 
 	cosine = setNames(data.frame(cosine),  centroids[,1])
 
 	closest = setNames(melt(apply(1-cosine, 2, rank)), c("variable", aggrVar, "rank"))
-	write.table( closest, file=sprintf("%s.cosine.tsv", opt$output), quote=F, row.names=F, sep="\t");
+	write.table( cosine, file=sprintf("%s.cosine.tsv", opt$output), quote=F, row.names=F, sep="\t");
 
-	closest_df = data.frame(merge(closest, scaledLoadings, by.x="variable", by.y="row.names"))
+	closest_df = data.frame(merge(closest, scaledLoadings, 
+		by.x="variable", by.y="row.names"), check.names=F)
 
 	
 }
@@ -310,10 +313,12 @@ if (length(prinComp) == 2){
 	gp = ggplot(df, aes_string(x=prinComp[1],y=prinComp[2]));
 
 	if (opt$biplot) {
-		gp = gp + geom_point(data=centroids, aes_string(x=prinComp[1], y=prinComp[2], color=opt$color_by), shape=8, size=7)
+		gp = gp + geom_point(data=centroids, aes_string(
+			x=prinComp[1], y=prinComp[2], color="Group.1"), shape=8, size=7)
 		gp = gp + geom_segment( 
 			data=subset(closest_df, rank <= top), 
-			aes_string(x=0, y=0, xend=prinComp[1], yend=prinComp[2], color=opt$color_by)
+			aes_string(x=0, y=0, xend=prinComp[1], yend=prinComp[2], 
+				color=sprintf("`%s`", opt$color_by))
 		)
 	}
 
