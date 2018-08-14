@@ -230,7 +230,7 @@ if (opt$biplot) {
 	cosine = setNames(data.frame(cosine),  centroids[,1])
 
 	closest = setNames(melt(apply(1-cosine, 2, rank)), c("variable", aggrVar, "rank"))
-	write.table( cosine, file=sprintf("%s.cosine.tsv", opt$output), quote=F, row.names=F, sep="\t");
+	write.table( cosine, file=sprintf("%s.cosine.tsv", opt$output), quote=F, sep="\t");
 
 	closest_df = data.frame(merge(closest, scaledLoadings, 
 		by.x="variable", by.y="row.names"), check.names=F)
