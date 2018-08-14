@@ -219,7 +219,7 @@ if (opt$biplot) {
 	
 	vecNorm = function(x) {sqrt(sum(x**2))}
 	
-	scaledLoadings = sweep(m_pca$rotation, 2, m_pca$sdev * nrow(m_pca$x), "*")
+	scaledLoadings = sweep(m_pca$rotation, 2, m_pca$sdev, "*")
 	
 	#centroidsNorm = apply(centroidsM[,prinComp], 1, vecNorm)         # DIM: number of levels x 1
 	#loadingsNorm = apply(scaledLoadings[,prinComp], 1, vecNorm)      # DIM: number of variables x 1
