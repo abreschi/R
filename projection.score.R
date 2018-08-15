@@ -131,7 +131,7 @@ write.table(selected, sprintf("%s.txt", opt$output), quote=FALSE, col.names=FALS
 
 # Plot the projection score as a function of the variance
 df = data.frame(var_thresholds, proj_scores)
-print(head(df))
+if (opt$verbose) {print(df)}
 
 theme_set(theme_bw(base_size=18))
 
