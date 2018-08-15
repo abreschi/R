@@ -226,7 +226,7 @@ if (opt$biplot) {
 	centroidsNorm = apply(centroidsM, 1, vecNorm)         # DIM: number of levels x 1
 	
 	#cosine = ( scaledLoadings[,prinComp] %*% t(centroidsM[,prinComp]) ) / (loadingsNorm %*% t(centroidsNorm))
-	cosine = scaledLoadings %*% t(centroidsM) / centroidsNorm 
+	cosine = scaledLoadings %*% t(centroidsM/centroidsNorm) 
 	cosine = setNames(data.frame(cosine),  centroids[,1])
 
 	closest = setNames(melt(apply(1-cosine, 2, rank)), c("variable", aggrVar, "rank"))
