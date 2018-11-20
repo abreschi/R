@@ -81,7 +81,7 @@ if (opt$verbose) {print(opt)}
 if (opt$verbose) {cat("Loading libraries... ", file=stderr())}
 suppressPackageStartupMessages(library(reshape2))
 suppressPackageStartupMessages(library(data.table))
-source("/users/rg/abreschi/R/functions.R")
+source("./functions.R")
 if (opt$verbose) {cat("DONE\n\n", file=stderr())}
 
 
