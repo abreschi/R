@@ -10,6 +10,7 @@
 suppressPackageStartupMessages(library("reshape2"))
 suppressPackageStartupMessages(library("ggplot2"))
 suppressPackageStartupMessages(library("optparse"))
+suppressPackageStartupMessages(library("scales"))
 
 options(stringsAsFactors=F)
 
@@ -24,11 +25,17 @@ make_option(c("-i", "--input_matrix"), default="stdin",
 make_option(c("-l", "--log10"), action="store_true", default=FALSE, 
 	help="apply the log before scaling [default=FALSE]"),
 
-make_option(c("-p", "--pseudocount"), type="double", default=1e-04,
+make_option(c("-p", "--pseudocount"), type="double", default=0,
 	help="specify a pseudocount for the log [default=%default]"),
 
 make_option(c("-r", "--row_first"), action="store_true", default=FALSE,
 	help="scale first by rows then by columns"),
+
+make_option(c("-a", "--all"), action="store_true", default=FALSE,
+	help="scale the whole matrix by overall mean and sd"),
+
+make_option(c("--range"), action="store_true", default=FALSE,
+	help="Normalize so the values are between 0 and 1"),
 
 make_option(c("-k", "--keep_NA"), action="store_true", default=FALSE,
 	help="NAs are not replaced by zero [default=%default]"),
@@ -66,11 +73,11 @@ if (opt$verbose) {print(opt)}
 ###############
 
 # read options
+inF = opt$input_matrix
 if (opt$input_matrix == "stdin") {
-	m <- read.table(file("stdin"), h=T)
-} else {
-	m <- read.table(opt$input_matrix, h=T)
-}
+	inF = file("stdin")
+} 
+m <- read.table(inF, h=T, sep="\t", check.names=F)
 
 # Remove character columns
 char_cols <- which(sapply(m, class) == 'character')
@@ -131,11 +138,40 @@ equil = function(matr) {
 	}
 }
 
+scale_all = function(new_m) {
+	new_m = (new_m - mean(as.matrix(new_m), na.rm=T)) / sd(as.matrix(new_m), na.rm=T)
+	return(new_m)
+}
+
+
 new_m = m
+
+# Choose function
+scale_func = function(new_m, opt) {
+	if (opt$all & opt$range) {
+		new_m = as.data.frame(rescale(as.matrix(new_m)))
+		return(new_m)
+	}
+	if (!opt$all & opt$range) {
+		new_m = t(apply(new_m, 1, rescale, to=c(0,1)))
+		return (new_m)
+	}
+	if (opt$all & !opt$range) {
+		new_m = scale_all(new_m)
+		return (new_m)
+	}
+	new_m = equil(new_m)
+	return(new_m)
+}
 
 # scale the whole matrix if no value is provided
 if (is.null(opt$scale_by)) {
-	new_m = equil(new_m)
+	new_m = scale_func(new_m, opt)
+#	if (opt$all) {
+#		new_m = scale_all(new_m)	
+#	} else{ 
+#		new_m = equil(new_m)
+#	}
 }
 
 # scale the sub-matrices defined the scale_by option
@@ -157,7 +193,13 @@ if (!is.null(opt$scale_by)) {
 	for (i in 1:length(lev)) {
 		ids = mdata[lev[i] == mdata$interaction, "labExpId"]
 		subm = m[,ids]
-		equilm = equil(subm)
+		equilm = scale_func(subm, opt)
+		#if (opt$all) {
+		#	equilm = scale_all(subm)	
+		#} else{ 
+		#	equilm = equil(subm)
+		#}
+		#equilm = equil(subm)
 		new_m[,ids] = equilm
 	}
 	
